@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: reservation
+  datasource:
+    url: "jdbc:h2:mem:reservation;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    defer-datasource-initialization: true
+    # OSIV 비활성. 기본값(true)은 뷰 렌더링까지 영속성 컨텍스트를 열어두어
+    # 커넥션 점유가 길어지고, 준영속 처리 누락(save() 생략 등)을 숨긴다.
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+  # 인증이 없는 애플리케이션이므로(NFR-05) 콘솔이 켜지면 DB가 무방비 노출된다.
+  # 의존성도 developmentOnly로 격리했지만 기본값 의존을 없애기 위해 명시한다.
+  h2:
+    console:
+      enabled: false
