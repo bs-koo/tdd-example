@@ -78,6 +78,7 @@ today.ts      new Date() 를 쓰는 유일한 곳
 | 주제 | 설명 |
 |------|------|
 | 구현 추적 | [`status.md`](status.md) — BR/FR별 상태 + 이월 항목 |
+| **테스트 시나리오** | [`test-scenarios.md`](test-scenarios.md) — 287건이 보장하는 동작을 시나리오 단위로 정리 |
 | 설계 결정 | `.dev/feat-room-reservation/design.md` — 검증 순서(A-1), 겹침 매칭(B-5), 확정 계약(§9.13·§9.14) |
-| 수용 기준 | `.dev/feat-room-reservation/prd.md` — AC 39건 |
+| 수용 기준 | `.dev/feat-room-reservation/prd.md` — AC 44건 (리뷰 반영분 AC-36~40 포함) |
 | 원 요구사항 | [`requirements/mvp.md`](../../requirements/mvp.md) |
