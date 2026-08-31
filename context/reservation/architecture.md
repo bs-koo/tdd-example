@@ -66,10 +66,19 @@ hooks/
   useReservationBoard    오류를 errorCode 로 흡수하고 reject 하지 않는다
 components/
   TimeSlotGrid / ReservationFormDialog / CancelConfirmDialog / ErrorBanner / DateSelector
+  errorCopy              오류 코드 → 다음 행동 문구 (errorMessages 를 건드리지 않는다)
+  useDialogFocus         포커스 트랩 · 초기 포커스 · Escape · 초점 복원
 pages/
   ReservationPage        api 를 prop 으로 주입받는다 (테스트 격리 seam)
+styles/
+  tokens.css             디자인 토큰 (색·타이포·간격·라운드) — 근거는 design-tokens.md
+  app.css                리셋·레이아웃·컴포넌트·반응형. 리터럴 hex 0건
 today.ts      new Date() 를 쓰는 유일한 곳
 ```
+
+**훅 계약 우회**: `useReservationBoard.createReservation` 은 예외를 삼키고 `undefined` 로 정상 resolve 한다(테스트가 고정). 그래서 `ReservationPage` 가 `api` prop 을 `useMemo` 래퍼로 감싸 성패와 pending 수를 기록하고, **성공했을 때만** 다이얼로그를 닫는다. 훅은 무변경이다 — 이 우회로 "실패 시 입력이 사라지는" 결함과 로딩·재시도 부재를 훅 계약을 깨지 않고 해결했다.
+
+**격자 구조**: `.board` 단일 CSS Grid + 행 래퍼 `display:contents`. 머리 행과 방 4행의 셀이 같은 그리드에 놓여 열이 구조적으로 어긋날 수 없다. 모바일(≤720px)은 `grid-auto-flow:column` 하나로 축이 90° 회전하며 **DOM 재렌더가 없다** — 방 이름 문자열이 화면 전체에서 1회만 등장해야 한다는 테스트 제약 때문에 반응형 이중 렌더를 쓸 수 없다.
 
 **테스트 격리 전략**: 모듈 모킹(`vi.mock`)을 쓰지 않는다 — 호이스팅과 경로 문자열에 결합돼 import 경로가 바뀌면 조용히 깨진다. 대신 `api` 를 prop으로 주입하고, 네트워크 계층은 `globalThis.fetch` 를 스텁한다.
 
@@ -78,7 +87,8 @@ today.ts      new Date() 를 쓰는 유일한 곳
 | 주제 | 설명 |
 |------|------|
 | 구현 추적 | [`status.md`](status.md) — BR/FR별 상태 + 이월 항목 |
-| **테스트 시나리오** | [`test-scenarios.md`](test-scenarios.md) — 287건이 보장하는 동작을 시나리오 단위로 정리 |
+| **테스트 시나리오** | [`test-scenarios.md`](test-scenarios.md) — 275건이 보장하는 동작을 시나리오 단위로 정리 |
+| **디자인 톤 기준** | [`design-tokens.md`](design-tokens.md) — 색·타이포·간격의 근거와 **바꾸면 안 되는 것** |
 | 설계 결정 | `.dev/feat-room-reservation/design.md` — 검증 순서(A-1), 겹침 매칭(B-5), 확정 계약(§9.13·§9.14) |
 | 수용 기준 | `.dev/feat-room-reservation/prd.md` — AC 44건 (리뷰 반영분 AC-36~40 포함) |
 | 원 요구사항 | [`requirements/mvp.md`](../../requirements/mvp.md) |
