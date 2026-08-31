@@ -1,0 +1,890 @@
+/* ---------------------------------------------------------------------------
+ * app.css — 레이아웃 · 컴포넌트 · 반응형
+ * 색 · 간격 · 라운드 · 그림자 · 모션은 tokens.css 의 변수로만 참조한다.
+ * ------------------------------------------------------------------------- */
+
+/* === 리셋 (최소) ========================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--ff-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+/* UA 기본 13.33px 부산물 제거 — 이 한 줄이 없으면 폼 전체가 본문 바닥 아래로 내려간다. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+  box-shadow: var(--c-focus-ring);
+}
+
+/* 화면에서만 감춘다 — 스크린리더는 읽는다. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--sp-4);
+  top: calc(var(--sp-4) * -4);
+  z-index: 20;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  color: var(--c-primary);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  transition: top var(--dur-fast) var(--ease);
+}
+
+.skip-link:focus {
+  top: var(--sp-4);
+}
+
+/* === 페이지 셸 =========================================================== */
+
+.shell {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: var(--sp-7) var(--sp-6) var(--sp-8);
+}
+
+/* === 머리말 ============================================================== */
+
+.masthead {
+  margin-bottom: var(--sp-6);
+}
+
+.masthead__title {
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-title);
+  font-weight: var(--fw-b);
+}
+
+.masthead__date {
+  margin-top: var(--sp-2);
+  color: var(--c-text-2);
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.masthead__policy {
+  margin-top: var(--sp-1);
+  color: var(--c-text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+/* === 도구 막대: 날짜 이동 + 범례 ========================================== */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.datebar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+
+.datebar__label {
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-m);
+}
+
+.datebar__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.datebar__input {
+  width: 148px;
+  height: 40px;
+  padding: 0 var(--sp-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.datebar__input:focus-visible {
+  border-color: var(--c-primary);
+}
+
+/* === 버튼 ================================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border-strong);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-m);
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--c-surface-sunken);
+  border-color: var(--c-border-strong);
+}
+
+.btn:active:not(:disabled) {
+  background: var(--c-border);
+}
+
+.btn:disabled {
+  color: var(--c-text-off);
+  background: var(--c-surface-sunken);
+  cursor: not-allowed;
+}
+
+.btn--icon {
+  padding: 0 var(--sp-3);
+}
+
+.btn--primary {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
+  font-weight: var(--fw-sb);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--c-primary-hover);
+  border-color: var(--c-primary-hover);
+}
+
+.btn--primary:active:not(:disabled) {
+  background: var(--c-primary-active);
+  border-color: var(--c-primary-active);
+}
+
+.btn--danger {
+  background: var(--c-danger);
+  border-color: var(--c-danger);
+  color: var(--c-on-primary);
+  font-weight: var(--fw-sb);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--c-danger-text);
+  border-color: var(--c-danger-text);
+}
+
+.btn--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--c-text-2);
+}
+
+.btn--quiet:hover:not(:disabled) {
+  background: var(--c-surface-sunken);
+  color: var(--c-text);
+}
+
+/* === 범례 ================================================================ */
+
+.toolbar__aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+/* 지금 보고 있는 현황이 언제 기준인지 — 새로 불러올 때마다 갱신된다. */
+.stamp {
+  color: var(--c-text-3);
+  font-size: var(--fs-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  color: var(--c-text-2);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* 범례가 상태를 가르쳐야 한다 — 슬롯과 똑같은 면·보더색·보더모양을 쓴다. */
+.legend__swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--c-free-bd);
+  background: var(--c-free-bg);
+}
+
+.legend__swatch--busy {
+  background: var(--c-busy-bg);
+  border-color: var(--c-busy-bd);
+}
+
+.legend__swatch--past {
+  background: var(--c-past-bg);
+  border-color: var(--c-past-bd);
+  border-style: dashed;
+}
+
+/* === 알림 영역 ============================================================
+ * 배너가 없을 때도 높이를 예약해 두어 오류가 떠도 아래 격자가 밀리지 않는다. */
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  margin-bottom: var(--sp-2);
+}
+
+.notice__banner {
+  flex: 1 1 320px;
+  display: flex;
+  /* 한 줄로 눕혀 예약해 둔 높이(44px) 안에 들어오게 한다 — 배너가 떠도 격자가 안 밀린다. */
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-danger-weak);
+  border: 1px solid var(--c-danger-bd);
+  border-radius: var(--r-md);
+  color: var(--c-danger-text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+.notice__message {
+  font-weight: var(--fw-sb);
+}
+
+.notice__next {
+  color: var(--c-text-2);
+  font-weight: var(--fw-r);
+}
+
+.notice__actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.notice__status {
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+}
+
+/* 다이얼로그가 열리면 같은 오류를 패널 안에서 보여 준다. 여기서는 화면에서만 걷어내되
+ * 노드와 role="alert" 는 남겨 보조기술이 계속 읽게 하고, 예약해 둔 높이도 유지한다. */
+.notice--quiet > * {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* --- 다이얼로그 안 오류 — 사고 지점에서 읽히는 자리 ----------------------- */
+
+/* 패널 안 내부 면은 셋 다 보더 없이 면 색으로만 구분한다(.summary · .dialog__warning
+ * 과 같은 규칙). 카드 인 카드로 읽히지 않게 하려는 결정이며, 여기서 한 번 더 고정한다.
+ * 페이지 배너(.notice__banner)는 패널 밖 단독 면이라 보더를 그대로 둔다. */
+.dialog__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  margin-top: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-danger-weak);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+.dialog__error-message {
+  color: var(--c-danger-text);
+  font-weight: var(--fw-sb);
+}
+
+.dialog__error-next {
+  color: var(--c-text);
+}
+
+/* === 보드 카드 ============================================================
+ * 표면은 한 장이다. 안에 또 다른 카드를 두지 않는다. */
+
+.board-card {
+  padding: var(--sp-5);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-card);
+  overflow-x: auto;
+}
+
+.board-card__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--c-text-3);
+  font-size: var(--fs-sm);
+}
+
+/* === 격자 ================================================================
+ * .board__row 는 display:contents 라 박스가 사라지고, 머리 행과 방 행의 셀이
+ * 같은 그리드에 놓인다. 열이 구조적으로 어긋날 수 없다. */
+
+.board {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: var(--room-col) repeat(18, minmax(var(--slot-min), 1fr));
+  gap: var(--sp-1);
+}
+
+.board__row {
+  display: contents;
+}
+
+/* 카드가 가로로 스크롤돼도 방 이름과 시간 축 머리는 제자리에 남는다.
+ * display:contents 행 안의 그리드 항목이라 sticky 가 그대로 동작한다. */
+.board__corner,
+.board__room {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--c-surface);
+  box-shadow: 1px 0 0 var(--c-border);
+}
+
+.board__corner,
+.board__tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: var(--sp-2);
+  color: var(--c-text-3);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.board__corner {
+  justify-content: flex-start;
+  padding-left: var(--sp-1);
+  font-weight: var(--fw-m);
+}
+
+.board__room {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  align-content: center;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1);
+  min-height: var(--slot-min);
+}
+
+.board__room-name {
+  width: 100%;
+  color: var(--c-text);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-sb);
+  line-height: 1.3;
+}
+
+.board__room-meta {
+  color: var(--c-text-3);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+
+/* === 슬롯 =============================================================== */
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: var(--slot-min);
+  min-height: var(--slot-min);
+  padding: var(--sp-1) 6px;
+  overflow: hidden;
+  border: 1px solid var(--c-free-bd);
+  border-radius: var(--r-sm);
+  background: var(--c-free-bg);
+  color: var(--c-free-text);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.slot:hover {
+  border-color: var(--c-primary);
+  background: var(--c-primary-weak);
+}
+
+.slot[data-state='busy'] {
+  border-color: var(--c-busy-bd);
+  background: var(--c-busy-bg);
+  color: var(--c-busy-text);
+}
+
+.slot[data-state='busy']:hover {
+  border-color: var(--c-border-strong);
+  background: var(--c-surface-sunken);
+}
+
+/* 지난 시간 — 면 밝기만으로는 가용과 1.16:1 이라 점선 보더를 한 겹 더 준다. */
+.slot[data-state='past'] {
+  border-color: var(--c-past-bd);
+  border-style: dashed;
+  background: var(--c-past-bg);
+  color: var(--c-past-text);
+}
+
+/* 지난 슬롯도 여전히 클릭되므로 호버 반응은 남긴다. 다만 보더는 반드시 평상시
+ * (--c-past-bd) 보다 어두워져야 한다 — --c-border-strong 은 --c-past-bd 보다 밝아
+ * 대비를 1.39:1 에서 1.26:1 로 떨어뜨렸다(호버 피드백 역전). busy-bd 는 1.60:1 이다. */
+.slot[data-state='past']:hover {
+  border-color: var(--c-busy-bd);
+  background: var(--c-past-bg);
+}
+
+/* 연속 점유 — 칸을 병합하지 않고 좌측 경계만 지워 하나의 면으로 잇는다. */
+.slot[data-continues='true'] {
+  border-left-color: transparent;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: calc(var(--sp-1) * -1);
+  padding-left: 0;
+}
+
+.slot[data-continued='true'] {
+  border-right-color: transparent;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* 이어지는 칸의 반복 텍스트는 시각적으로만 감춘다.
+ * display:none / 노드 제거를 쓰면 구간 포함 매칭이 깨진다. */
+.slot[data-continues='true'] .slot__name,
+.slot[data-continues='true'] .slot__purpose {
+  visibility: hidden;
+}
+
+/* 이어진 칸은 하나의 면이다. 첫 칸의 글자가 그 면 전체를 쓰도록 폭을 넓힌다.
+ * 16px = 칸 사이 간격 4px + 칸 좌우 패딩 12px. 뒤 칸들은 글자가 감춰져 있어 겹치지 않는다. */
+.slot[data-state='busy']:not([data-continues='true']) {
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+
+.slot[data-state='busy']:not([data-continues='true']) .slot__name,
+.slot[data-state='busy']:not([data-continues='true']) .slot__purpose {
+  width: calc(var(--run, 1) * (100% + 16px) - 16px);
+}
+
+.slot__name {
+  display: block;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: 1.25;
+  font-weight: var(--fw-m);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.slot__purpose {
+  display: block;
+  overflow: hidden;
+  color: var(--c-text-2);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+
+/* === 다이얼로그 ========================================================== */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: var(--c-overlay);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100vh - var(--sp-8));
+  overflow-y: auto;
+  padding: var(--sp-5);
+  background: var(--c-surface);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-dialog);
+}
+
+.dialog__title {
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  font-weight: var(--fw-sb);
+}
+
+.dialog__lead {
+  margin-top: var(--sp-2);
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+.dialog__body {
+  margin-top: var(--sp-5);
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-6);
+}
+
+/* 패널 안에 또 하나의 카드를 만들지 않는다 — 보더 없이 면 색만으로 구분한다. */
+.dialog__warning {
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-warn-weak);
+  border-radius: var(--r-md);
+  color: var(--c-warn-text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+/* 취소 확인 — 무엇을 지우는지 사실만 나열한다. */
+.summary {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--c-surface-sunken);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+/* sunken 면 위에서는 text-3 이 4.28:1 로 모자란다. 한 단 진한 값을 쓴다. */
+.summary__key {
+  color: var(--c-text-2);
+}
+
+.summary__value {
+  color: var(--c-text);
+  font-weight: var(--fw-m);
+  font-variant-numeric: tabular-nums;
+}
+
+/* === 폼 ================================================================== */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  /* 격자 항목의 자동 최소 폭은 input 의 기본 size(20자)라 그대로 두면 패널을 뚫는다. */
+  min-width: 0;
+  margin-bottom: var(--sp-4);
+}
+
+.field__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.field__label {
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-m);
+}
+
+.field__required {
+  color: var(--c-danger);
+}
+
+.field__count {
+  color: var(--c-text-3);
+  font-size: var(--fs-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.field__input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 var(--sp-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  color: var(--c-text);
+  font-size: var(--fs-body);
+}
+
+.field__input:focus-visible {
+  border-color: var(--c-primary);
+}
+
+/* 편집할 수 없는 값은 입력처럼 보이지 않게 한다 — 눌러도 안 되는 칸을 지운다. */
+.field__input[readonly] {
+  background: var(--c-surface-sunken);
+  border-color: var(--c-border);
+  border-style: dashed;
+  color: var(--c-text-2);
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+
+.field__input[aria-invalid='true'] {
+  border-color: var(--c-danger);
+}
+
+.field__hint {
+  color: var(--c-text-3);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+
+.field__error {
+  color: var(--c-danger-text);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+
+.field__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+  /* "언제" 묶음과 "누가·무엇을" 묶음 사이는 한 칸 더 띄운다. */
+  margin-bottom: var(--sp-5);
+}
+
+.field__row > .field {
+  margin-bottom: 0;
+}
+
+/* === 반응형 ==============================================================
+ * 방 이름을 두 번 렌더하지 않는다. DOM 은 그대로 두고 그리드 축만 돌린다. */
+
+@media (max-width: 1200px) {
+  .shell {
+    padding: var(--sp-6) var(--sp-5) var(--sp-7);
+  }
+
+  :root {
+    --room-col: 148px;
+  }
+
+  /* 가로축이 좁아지면 :30 눈금 라벨만 감춰 축을 정리한다. 노드는 남긴다. */
+  .board__tick[data-half='true'] {
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: var(--sp-5) var(--sp-4) var(--sp-6);
+  }
+
+  .toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .board-card {
+    padding: var(--sp-4);
+  }
+
+  /* 가로 = 방, 세로 = 시간. 열 하나가 19칸(머리 1 + 슬롯 18)을 차지한다.
+   * 첫 열만 명시해 시간 축을 좁히고, 방 열은 암시 열로 흘려보낸다. */
+  .board {
+    grid-auto-flow: column;
+    grid-template-columns: 52px;
+    grid-template-rows: auto repeat(18, var(--slot-min));
+    grid-auto-columns: minmax(72px, 1fr);
+  }
+
+  /* 축이 세로로 바뀌면 고정 대상도 바뀐다 — 시간 축이 왼쪽에 남고, 방 머리는 흐름대로 둔다. */
+  .board__corner,
+  .board__tick {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--c-surface);
+    box-shadow: 1px 0 0 var(--c-border);
+    justify-content: flex-start;
+    padding-bottom: 0;
+    padding-left: var(--sp-1);
+  }
+
+  .board__room {
+    position: static;
+    box-shadow: none;
+  }
+
+  .board__room {
+    align-content: flex-end;
+    padding: 0 0 var(--sp-2);
+    min-height: 0;
+  }
+
+  .board__room-name {
+    font-size: var(--fs-sm);
+  }
+
+  /* 세로축은 행마다 44px 이 확보되므로 :30 라벨을 다시 드러낸다. */
+  .board__tick[data-half='true'] {
+    visibility: visible;
+  }
+
+  /* 축이 세로로 바뀌면 이어짐 표시도 위쪽 경계로 옮겨간다. */
+  .slot[data-continues='true'] {
+    margin-left: 0;
+    padding-left: 6px;
+    border-left-color: var(--c-busy-bd);
+    border-top-color: transparent;
+    border-radius: 0 0 var(--r-sm) var(--r-sm);
+    margin-top: calc(var(--sp-1) * -1);
+  }
+
+  .slot[data-continued='true'] {
+    border-right-color: var(--c-busy-bd);
+    border-bottom-color: transparent;
+    border-radius: var(--r-sm) var(--r-sm) 0 0;
+  }
+
+  /* 세로축에서는 면이 아래로 이어지므로 가로 확장을 되돌린다. */
+  .slot[data-state='busy']:not([data-continues='true']) .slot__name,
+  .slot[data-state='busy']:not([data-continues='true']) .slot__purpose {
+    width: 100%;
+  }
+
+  .dialog {
+    max-width: none;
+  }
+
+  .field__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 390px 에서 회의실 4곳이 가로 스크롤 없이 한눈에 들어오도록 여백을 줄인다. */
+@media (max-width: 480px) {
+  .shell {
+    padding: var(--sp-5) var(--sp-3) var(--sp-6);
+  }
+
+  .board-card {
+    padding: var(--sp-3);
+  }
+
+  .datebar__input {
+    width: 128px;
+  }
+
+  .board {
+    grid-template-columns: 46px;
+    grid-auto-columns: minmax(68px, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
