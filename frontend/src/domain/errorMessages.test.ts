@@ -13,9 +13,27 @@ const CASES: Array<[ErrorCode, string]> = [
   ['ALREADY_CANCELLED', '이미 취소된 예약입니다.'],
   ['RESERVATION_NOT_FOUND', '예약을 찾을 수 없습니다.'],
   ['ROOM_NOT_FOUND', '회의실을 찾을 수 없습니다.'],
-  ['INVALID_RESERVER_NAME', '예약자명은 1~20자로 입력해주세요.'],
   ['INVALID_PURPOSE_LENGTH', '회의 목적은 50자 이내로 입력해주세요.'],
   ['INVALID_DATE_FORMAT', '날짜 형식이 올바르지 않습니다.'],
+  ['UNAUTHENTICATED', '로그인이 필요합니다.'],
+  ['INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다.'],
+  ['EMAIL_ALREADY_REGISTERED', '이미 가입된 이메일입니다.'],
+  ['INVALID_EMAIL_FORMAT', '이메일 형식이 올바르지 않습니다.'],
+  ['INVALID_PASSWORD_LENGTH', '비밀번호는 8자 이상 64자 이하로 입력해주세요.'],
+  ['INVALID_MEMBER_NAME', '이름은 1~20자로 입력해주세요.'],
+  ['MEMBER_NOT_FOUND', '해당 이메일의 사용자를 찾을 수 없습니다.'],
+  ['GROUP_NOT_FOUND', '그룹을 찾을 수 없습니다.'],
+  ['INVALID_GROUP_NAME', '그룹 이름은 1~30자로 입력해주세요.'],
+  ['NOT_GROUP_OWNER', '그룹장만 할 수 있는 작업입니다.'],
+  ['NOT_GROUP_MEMBER', '승인된 그룹원만 할 수 있는 작업입니다.'],
+  ['ALREADY_INVITED', '이미 초대했거나 참여 중인 사용자입니다.'],
+  ['SELF_INVITATION', '자기 자신은 초대할 수 없습니다.'],
+  ['INVITATION_NOT_FOUND', '초대를 찾을 수 없습니다.'],
+  ['NOT_INVITEE', '초대받은 본인만 응답할 수 있습니다.'],
+  ['INVITATION_ALREADY_RESPONDED', '이미 응답한 초대입니다.'],
+  ['INVALID_ROOM_NAME', '회의실 이름은 1~30자로 입력해주세요.'],
+  ['INVALID_ROOM_CAPACITY', '수용 인원은 1명 이상 999명 이하여야 합니다.'],
+  ['INVALID_ROOM_LOCATION', '위치는 1~30자로 입력해주세요.'],
 ];
 
 describe('ERROR_MESSAGES', () => {
@@ -23,8 +41,12 @@ describe('ERROR_MESSAGES', () => {
     expect(ERROR_MESSAGES[code]).toBe(message);
   });
 
-  it('정확히 13종의 오류 코드를 가진다 (누락 방지)', () => {
-    expect(Object.keys(ERROR_MESSAGES).length).toBe(13);
+  it('정확히 31종의 오류 코드를 가진다 (누락 방지)', () => {
+    expect(Object.keys(ERROR_MESSAGES).length).toBe(31);
+  });
+
+  it('예약자명이 요청 필드에서 사라졌으므로 INVALID_RESERVER_NAME은 더 이상 존재하지 않는다', () => {
+    expect(Object.keys(ERROR_MESSAGES)).not.toContain('INVALID_RESERVER_NAME');
   });
 });
 

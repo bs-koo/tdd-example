@@ -10,13 +10,14 @@ export type ReservationFormDialogProps = {
   roomId: number;
   date: string;
   initialStartTime: SlotTime;
+  /** 로그인한 사람의 이름. 표시 전용이다 — 예약자는 서버가 토큰에서 정한다. */
+  reserverName: string;
   onSubmit: (request: CreateReservationRequest) => void;
   onClose: () => void;
   /** 이 폼의 제출이 서버에 거절됐을 때의 코드. 오류를 사고 지점에서 보여 준다. */
   errorCode?: string | null;
 };
 
-const NAME_LIMIT = 20;
 const PURPOSE_LIMIT = 50;
 const BUSINESS_END_MINUTES = 18 * 60;
 const MAX_DURATION_MINUTES = 4 * 60;
@@ -54,42 +55,28 @@ function endTimeError(start: SlotTime, end: string): string | null {
   return null;
 }
 
-function reserverNameError(name: string): string | null {
-  const trimmed = name.trim();
-  if (trimmed.length === 0) {
-    return '예약자명을 입력해 주세요. 취소할 때 본인 확인에 쓰입니다.';
-  }
-  if (trimmed.length > NAME_LIMIT) {
-    return `예약자명은 ${NAME_LIMIT}자 이내로 입력해 주세요.`;
-  }
-  return null;
-}
-
 export default function ReservationFormDialog({
   open,
   roomId,
   date,
   initialStartTime,
+  reserverName,
   onSubmit,
   onClose,
   errorCode = null,
 }: ReservationFormDialogProps) {
   const [endTime, setEndTime] = useState(nextSlot(initialStartTime));
-  const [reserverName, setReserverName] = useState('');
   const [purpose, setPurpose] = useState('');
   const [endTouched, setEndTouched] = useState(false);
   const [attempted, setAttempted] = useState(false);
 
   const panelRef = useDialogFocus(open, onClose);
   const endRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
   const fieldId = useId();
   const startId = `${fieldId}-start`;
   const endId = `${fieldId}-end`;
   const endListId = `${fieldId}-end-options`;
   const endErrorId = `${fieldId}-end-error`;
-  const nameId = `${fieldId}-name`;
-  const nameErrorId = `${fieldId}-name-error`;
   const purposeId = `${fieldId}-purpose`;
 
   if (!open) {
@@ -97,23 +84,19 @@ export default function ReservationFormDialog({
   }
 
   const endError = endTimeError(initialStartTime, endTime);
-  const nameError = reserverNameError(reserverName);
   const shownEndError = endTouched || attempted ? endError : null;
-  const shownNameError = attempted ? nameError : null;
 
   const handleConfirm = () => {
-    if (endError !== null || nameError !== null) {
+    if (endError !== null) {
       // 검증 실패를 초점으로 알린다. 버튼에 초점이 남으면 키보드·스크린리더 사용자에게는
       // 아무 일도 일어나지 않은 것처럼 보인다. flushSync 로 오류 문구와 aria-describedby 를
       // 먼저 붙여 두어야 초점이 닿는 순간 사유까지 함께 읽힌다.
       flushSync(() => setAttempted(true));
-      // DOM 순서상 종료 시각이 예약자명보다 앞이다 — 첫 번째 무효 필드로 옮긴다.
-      (endError !== null ? endRef.current : nameRef.current)?.focus();
+      endRef.current?.focus();
       return;
     }
     onSubmit({
       roomId,
-      reserverName,
       purpose,
       startAt: toServerDateTime(date, initialStartTime),
       endAt: toServerDateTime(date, endTime),
@@ -181,32 +164,12 @@ export default function ReservationFormDialog({
             </div>
           </div>
 
+          {/* 예약자는 로그인한 사람으로 이미 정해져 있다. 고를 수 없는 값이니 사실만 보여 준다. */}
           <div className="field">
             <div className="field__head">
-              <label className="field__label" htmlFor={nameId}>
-                예약자명 <span className="field__required">*</span>
-              </label>
-              <span className="field__count">
-                {reserverName.length} / {NAME_LIMIT}
-              </span>
+              <span className="field__label">예약자</span>
             </div>
-            <input
-              id={nameId}
-              ref={nameRef}
-              className="field__input"
-              aria-label="예약자명"
-              data-autofocus
-              maxLength={NAME_LIMIT}
-              value={reserverName}
-              aria-invalid={shownNameError !== null}
-              aria-describedby={shownNameError !== null ? nameErrorId : undefined}
-              onChange={(e) => setReserverName(e.target.value)}
-            />
-            {shownNameError !== null && (
-              <span className="field__error" id={nameErrorId}>
-                {shownNameError}
-              </span>
-            )}
+            <p className="field__static">{reserverName}</p>
           </div>
 
           <div className="field">
@@ -222,6 +185,7 @@ export default function ReservationFormDialog({
               id={purposeId}
               className="field__input"
               aria-label="회의 목적"
+              data-autofocus
               maxLength={PURPOSE_LIMIT}
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}

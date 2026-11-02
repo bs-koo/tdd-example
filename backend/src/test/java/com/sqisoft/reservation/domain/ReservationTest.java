@@ -1,5 +1,6 @@
 package com.sqisoft.reservation.domain;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +21,7 @@ class ReservationTest {
 
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -35,6 +37,7 @@ class ReservationTest {
 
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -50,6 +53,7 @@ class ReservationTest {
 
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -66,12 +70,14 @@ class ReservationTest {
 
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 slot,
                 createdAt);
 
         assertThat(reservation.roomId()).isEqualTo(ReservationTestFixtures.ROOM_ID);
+        assertThat(reservation.memberId()).isEqualTo(ReservationTestFixtures.MEMBER_ID);
         assertThat(reservation.reserverName()).isEqualTo(ReservationTestFixtures.RESERVER);
         assertThat(reservation.purpose()).isEqualTo("주간 회의");
         assertThat(reservation.timeSlot()).isEqualTo(slot);
@@ -79,12 +85,13 @@ class ReservationTest {
     }
 
     @Test
-    @DisplayName("reserverName은 trim되어 저장된다")
+    @DisplayName("reserverName은 표시용으로 trim되어 저장된다")
     void reserverName은_trim되어_저장된다() {
         LocalDateTime createdAt = ReservationTestFixtures.at(ReservationTestFixtures.DEFAULT_DATE, "09:00");
 
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 "  김본승  ",
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -100,6 +107,7 @@ class ReservationTest {
 
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 null,
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -115,6 +123,7 @@ class ReservationTest {
 
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "  주간 회의  ",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -124,13 +133,14 @@ class ReservationTest {
     }
 
     @Test
-    @DisplayName("restore로 생성한 예약은 주어진 id를 그대로 반환한다")
+    @DisplayName("restore로 생성한 예약은 주어진 id와 memberId를 그대로 반환한다")
     void restore로_생성한_예약은_주어진_id를_그대로_반환한다() {
         LocalDateTime createdAt = ReservationTestFixtures.at(ReservationTestFixtures.DEFAULT_DATE, "09:00");
 
         Reservation reservation = Reservation.restore(
                 42L,
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -138,6 +148,7 @@ class ReservationTest {
                 createdAt);
 
         assertThat(reservation.id()).isEqualTo(42L);
+        assertThat(reservation.memberId()).isEqualTo(ReservationTestFixtures.MEMBER_ID);
     }
 
     @Test
@@ -148,6 +159,7 @@ class ReservationTest {
         Reservation reservation = Reservation.restore(
                 1L,
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -168,6 +180,7 @@ class ReservationTest {
         LocalDateTime createdAt = ReservationTestFixtures.at(ReservationTestFixtures.DEFAULT_DATE, "08:00");
         Reservation reservation = Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot("09:00", "10:00"),
@@ -185,6 +198,7 @@ class ReservationTest {
         Reservation reservation = Reservation.restore(
                 1L,
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 slot,
@@ -192,5 +206,59 @@ class ReservationTest {
                 createdAt);
 
         assertThat(reservation.overlapsWith(slot)).isFalse();
+    }
+
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 10, 10, 0);
+
+    private static Reservation reservationAt(LocalDate date, String start, String end, ReservationStatus status) {
+        return Reservation.restore(
+                1L,
+                ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
+                ReservationTestFixtures.RESERVER,
+                "주간 회의",
+                ReservationTestFixtures.slot(date, start, end),
+                status,
+                LocalDateTime.of(2026, 11, 1, 8, 0));
+    }
+
+    @Test
+    @DisplayName("AC-25: 종료 시각이 정확히 기준 시각인 ACTIVE 예약은 앞으로의 예약이 아니다")
+    void 종료_시각이_기준_시각과_같은_ACTIVE_예약은_앞으로의_예약이_아니다() {
+        Reservation reservation = reservationAt(LocalDate.of(2026, 11, 10), "09:00", "10:00", ReservationStatus.ACTIVE);
+
+        assertThat(reservation.isOngoingOrUpcomingAt(NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-25: 진행 중인 ACTIVE 예약은 앞으로의 예약이다")
+    void 진행_중인_ACTIVE_예약은_앞으로의_예약이다() {
+        Reservation reservation = reservationAt(LocalDate.of(2026, 11, 10), "09:30", "10:30", ReservationStatus.ACTIVE);
+
+        assertThat(reservation.isOngoingOrUpcomingAt(NOW)).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-25: 미래 날짜라도 CANCELLED 예약은 앞으로의 예약이 아니다")
+    void 미래의_CANCELLED_예약은_앞으로의_예약이_아니다() {
+        Reservation reservation = reservationAt(LocalDate.of(2026, 11, 11), "09:00", "10:00", ReservationStatus.CANCELLED);
+
+        assertThat(reservation.isOngoingOrUpcomingAt(NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-25: 어제의 ACTIVE 예약은 앞으로의 예약이 아니다")
+    void 어제의_ACTIVE_예약은_앞으로의_예약이_아니다() {
+        Reservation reservation = reservationAt(LocalDate.of(2026, 11, 9), "09:00", "10:00", ReservationStatus.ACTIVE);
+
+        assertThat(reservation.isOngoingOrUpcomingAt(NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-24: 내일의 ACTIVE 예약은 앞으로의 예약이다")
+    void 내일의_ACTIVE_예약은_앞으로의_예약이다() {
+        Reservation reservation = reservationAt(LocalDate.of(2026, 11, 11), "09:00", "10:00", ReservationStatus.ACTIVE);
+
+        assertThat(reservation.isOngoingOrUpcomingAt(NOW)).isTrue();
     }
 }

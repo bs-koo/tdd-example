@@ -1,6 +1,6 @@
 package com.sqisoft.reservation.domain;
 
-public enum ReservationErrorCode {
+public enum ReservationErrorCode implements ErrorCode {
 
     OVERLAPPING_RESERVATION("해당 시간대에 이미 예약이 있습니다."),
     INVALID_TIME_UNIT("예약 시각은 30분 단위여야 합니다."),
@@ -12,9 +12,12 @@ public enum ReservationErrorCode {
     ALREADY_CANCELLED("이미 취소된 예약입니다."),
     RESERVATION_NOT_FOUND("예약을 찾을 수 없습니다."),
     ROOM_NOT_FOUND("회의실을 찾을 수 없습니다."),
-    INVALID_RESERVER_NAME("예약자명은 1~20자로 입력해주세요."),
     INVALID_PURPOSE_LENGTH("회의 목적은 50자 이내로 입력해주세요."),
-    INVALID_DATE_FORMAT("날짜 형식이 올바르지 않습니다.");
+    INVALID_DATE_FORMAT("날짜 형식이 올바르지 않습니다."),
+    INVALID_ROOM_NAME("회의실 이름은 1~30자로 입력해주세요."),
+    INVALID_ROOM_CAPACITY("수용 인원은 1명 이상 999명 이하여야 합니다."),
+    INVALID_ROOM_LOCATION("위치는 1~30자로 입력해주세요."),
+    ROOM_HAS_ACTIVE_RESERVATIONS("예정된 예약이 있어 삭제할 수 없습니다. 예약을 먼저 취소해주세요.");
 
     private final String message;
 
@@ -22,6 +25,7 @@ public enum ReservationErrorCode {
         this.message = message;
     }
 
+    @Override
     public String message() {
         return message;
     }

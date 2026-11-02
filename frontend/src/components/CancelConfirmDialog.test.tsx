@@ -7,6 +7,7 @@ import CancelConfirmDialog from './CancelConfirmDialog';
 const RESERVATION: ReservationDto = {
   id: 7,
   roomId: 1,
+  memberId: 1,
   reserverName: '김본승',
   purpose: '주간 회의',
   startAt: '2026-08-26T09:00:00',
@@ -17,6 +18,7 @@ const RESERVATION: ReservationDto = {
 type RenderOverrides = {
   open?: boolean;
   reservation: ReservationDto | null;
+  canCancel?: boolean;
   onConfirm?: (reservation: ReservationDto) => void;
   onClose?: () => void;
 };
@@ -28,6 +30,7 @@ function renderDialog(overrides: RenderOverrides) {
     <CancelConfirmDialog
       open={overrides.open ?? true}
       reservation={overrides.reservation}
+      canCancel={overrides.canCancel ?? true}
       onConfirm={onConfirm}
       onClose={onClose}
     />,
@@ -75,6 +78,38 @@ describe('CancelConfirmDialog', () => {
   it('닫기 버튼을 클릭하면 onClose가 정확히 1회 호출되고 onConfirm은 호출되지 않는다', async () => {
     const user = userEvent.setup();
     const { onConfirm, onClose } = renderDialog({ reservation: RESERVATION });
+
+    await user.click(screen.getByRole('button', { name: '닫기' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('CancelConfirmDialog 남의 예약', () => {
+  it('취소할 수 없는 예약이면 "예약 정보"로 열리고 확인 버튼을 주지 않는다', () => {
+    renderDialog({ reservation: RESERVATION, canCancel: false });
+
+    expect(screen.getByRole('dialog', { name: '예약 정보' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '확인' })).not.toBeInTheDocument();
+  });
+
+  it('취소할 수 없어도 누가 무엇을 잡았는지는 그대로 보여 준다', () => {
+    renderDialog({ reservation: RESERVATION, canCancel: false });
+
+    expect(screen.getByText('김본승')).toBeInTheDocument();
+    expect(screen.getByText('주간 회의')).toBeInTheDocument();
+  });
+
+  it('취소할 수 없는 이유를 문장으로 알려 준다', () => {
+    renderDialog({ reservation: RESERVATION, canCancel: false });
+
+    expect(screen.getByText('예약자 본인만 취소할 수 있습니다.')).toBeInTheDocument();
+  });
+
+  it('취소할 수 없는 예약에서도 닫기는 동작한다', async () => {
+    const user = userEvent.setup();
+    const { onConfirm, onClose } = renderDialog({ reservation: RESERVATION, canCancel: false });
 
     await user.click(screen.getByRole('button', { name: '닫기' }));
 

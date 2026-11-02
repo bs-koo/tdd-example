@@ -8,15 +8,17 @@
 
 | 구분 | 건수 |
 |------|------|
-| 백엔드 | **179** |
-| 프론트 | **108** |
-| **합계** | **287** |
+| 백엔드 | **545** |
+| 프론트 | **251** |
+| **합계** | **796** |
 
 실행:
 ```bash
-./gradlew test    # 백엔드 179
-npm test          # 프론트 108
+./gradlew test    # 백엔드 545
+npm test          # 프론트 251
 ```
+
+> 📌 **개정 (2026-11-02)**: 아래 §1~§9 는 MVP(287건) 시점의 시나리오이며, 로그인·그룹(Phase 8)에서 일부가 바뀌었다 — 취소 권한은 *예약자명* 이 아니라 **memberId** 로 판정하고(§4.1), 오류 코드는 13종이 아니라 **31종**이며(§6), `GET /api/rooms` 는 폐기됐다. Phase 8 에서 추가·변경된 시나리오는 맨 아래 **§10** 에 모았다. §1~§9 의 해당 문장을 지금 고치지 않은 이유는 MVP 시점의 판정 근거를 그대로 남기기 위해서다.
 
 > ⚠️ 두 명령을 **동시에 돌리지 마십시오.** Gradle 데몬과 vitest 워커가 자원 경합을 일으켜 워커 기동 타임아웃이 발생한 사례가 있습니다. `./gradlew --stop` 후 `npm test` 를 권합니다.
 
@@ -446,9 +448,58 @@ jsonPath("$.code").doesNotExist()
 | 그리드 키보드 조작 불가 | 컴포넌트 테스트 통과 | 코드 리뷰 (`data-testid` 가 비시맨틱 구조를 통과시킴) |
 | 날짜 입력 재조회 폭주 | 통합 테스트 통과 | 코드 리뷰 (`toHaveBeenCalledWith` 는 횟수를 안 봄) |
 
+# 10. 로그인 · 그룹 · 그룹 전용 회의실 (Phase 8)
+
+규칙 원문은 [`requirements/auth-groups.md`](../../requirements/auth-groups.md) §2. 건수는 2026-11-02 실측.
+
+## 10.1 백엔드
+
+| 보장하는 동작 | 규칙 | 검증 위치 (건수) |
+|---------------|------|------------------|
+| 이메일 정규화 · 비밀번호 8~64자 · 이름 길이 | AR-01, 02 | `MemberTest`(8) · `MemberPolicyTest`(18) |
+| 비밀번호를 평문 저장하지 않고 솔트가 계정마다 다르다 | AR-03 | `Pbkdf2PasswordHasherTest`(8) |
+| 세션 12시간 만료, **정각은 이미 만료** | AR-05 | `SessionTest`(5) |
+| 가입·로그인·로그아웃, 미가입/불일치를 같은 코드로 거절, 토큰별 로그아웃 | AR-04, 06 | `AuthServiceTest`(19) · `AuthApiTest`(14) |
+| 그룹 생성자는 즉시 OWNER·APPROVED | GR-01 | `GroupTest`(8) |
+| 멤버십 상태 전이 (PENDING→APPROVED/REJECTED, 거절 후 재초대) | GR-03~07 | `GroupMembershipTest`(14) |
+| 초대는 그룹장만 · 본인만 응답 · 자기 초대 금지 · 미가입 이메일 거절 | GR-02, 04, 08, 09 | `GroupServiceTest`(28) · `GroupApiTest`(18) |
+| 회의실 이름·위치 1~30자, 인원 1~999 | RR-04 | `RoomTest`(26) |
+| 회의실 추가는 승인된 그룹원만, **권한이 입력 검증보다 앞선다** | RR-02 | `RoomServiceTest`(26) · `RoomApiTest`(20) |
+| 남의 그룹 회의실은 존재해도 예약할 수 없다 | RR-03 | `ReservationApiTest`(17) · `ReservationServiceTest`(16) |
+| 취소 권한은 memberId — **동명이인이 남의 예약을 취소할 수 없다** | BR-07 개정 | `ReservationCancelTest`(10) · `ReservationServiceCancelTest`(11) · `ReservationApiTest` |
+| 오류 코드 31종 전수 HTTP 매핑 · 도달 가능성 · 문구 | — | `ErrorCodeHttpStatusTest`(35) · `ApiErrorMappingTest`(17) · `ReservationErrorCodeMessageTest`(19) |
+
+## 10.2 프론트
+
+| 파일 (건수) | 보장하는 동작 |
+|-------------|---------------|
+| `tokenStorage.test.ts` (6) | 토큰 저장·조회·삭제. 저장소 접근이 예외를 던지는 환경(프라이빗 모드)에서도 앱이 죽지 않는다 |
+| `auth.test.ts` (9) · `groups.test.ts` (10) | Bearer 헤더 부착, 오류 코드 전달 |
+| `useAuth.test.ts` (14) | loading → anonymous/로그인 전이, 가입·로그인·로그아웃 |
+| `useGroups.test.ts` (13) | 그룹 자동 선택, 그룹 생성·초대·수락/거절 후 목록 갱신, 거절 시 `errorCode` 만 남고 reject 하지 않는다 |
+| `LoginPage.test.tsx` (10) · `GroupsPage.test.tsx` (15) | 가입/로그인 폼, 그룹·초대·명단 화면 |
+| `RoomFormDialog.test.tsx` (10) | 회의실 추가 폼 — 이름·인원·위치가 비거나 범위를 벗어나면 요청 없이 그 자리에서 사유를 알린다 |
+| `App.test.tsx` (10) | 토큰 없음/세션 복원 중/만료 시 화면, 로그인·로그아웃 전환, 그룹 없음 안내, 탭 전환, 그룹 변경 시 격자 교체 |
+
 ## 검증 기법 메모
 
 - **뮤테이션**: 프로덕션 코드를 일부러 훼손하고 테스트가 깨지는지 확인합니다. 처음부터 통과하는 테스트(회귀 방지용)에 특히 필요합니다
 - **실서버 발사**: MockMvc는 프레임워크 계층 일부를 건너뜁니다. 실제 톰캣에서만 드러나는 경로가 있습니다
 - **공허한 통과 감시**: 부정 단언("~이 없다")은 대상이 아예 없어도 참입니다. 같은 렌더/응답에서 긍정 단언과 짝지어야 합니다
 - **자기참조 단언 감시**: `expect(f(x)).toBe(CONST)` 는 양변이 같은 상수를 참조하면 상수값이 무엇이든 통과합니다
+
+## 11. 회의실 수정 · 삭제 (W10, 백엔드)
+
+> 백엔드 테스트가 407건에서 545건이 됐다(+138). 프론트는 251건 그대로다(화면은 후속). 추가분은 7개 태스크의 RED 에서 나왔다.
+
+| 영역 | 검증하는 동작 | 건수 |
+|------|---------------|------|
+| 오류 코드 (`ErrorCodeHttpStatusTest`·`ReservationErrorCodeMessageTest`) | `ROOM_HAS_ACTIVE_RESERVATIONS` 409 매핑, 문구, 총 32종·Reservation 16종 | +3 |
+| 앞으로의 예약 판정 (`ReservationTest`·InMemory/JPA 저장소 테스트) | 종료 == 기준 시각이면 false(반개구간), 진행 중 true, 미래 CANCELLED·어제 ACTIVE false, 다른 방 무시. 세 구현이 같은 결과 | +17 |
+| `Room.update` (`RoomTest`) | trim, 이름·위치 1/30/31자·공백, 인원 0/1/999/1000/-1, 이름→인원→위치 순서, 같은 값, **위반 시 세 필드 모두 불변(원자성)**, id·groupId 불변 | +25 |
+| `RoomService.updateRoom` (`RoomServiceUpdateTest`) | 존재 → 승인된 그룹원 → 입력 검증 순서, PENDING·REJECTED·외부인 거절, 다른 방·그룹 불변, 저장 반영(복사본 fake 로 save 누락 검출) | +9 |
+| 삭제 저장소 계약 + `RoomService.deleteRoom` | 존재 → 그룹장 → 앞으로의 예약 순서, 경계 Ra(종료==기준) 삭제·Rb(진행 중) 거절·Rc(미래 CANCELLED)·Rd(어제 ACTIVE) 삭제, 예약 이력 보존, 삭제된 방은 수정·재삭제·접근 모두 404, 마지막 방 삭제 뒤 추가 가능, JPA 는 방 삭제 후에도 roomId 예약 행 잔존 | +30 |
+| `PUT /api/rooms/{id}` (`RoomUpdateApiTest`) | 무토큰 401(깨진 JSON 이어도), 토큰 있고 깨진 JSON 400(기존 계약 특성화), 권한·검증 순서, 경계값, 인원 생략 400, 원자성(flush/clear 후 재조회), 예약 불변 | +31 |
+| `DELETE /api/rooms/{id}` (`RoomDeleteApiTest`) | 204, 무토큰 401, 일반 그룹원·대기·거절·외부인 403 `NOT_GROUP_OWNER`, 권한이 예약 확인보다 먼저(409 안 샘), 경계 4종, 취소 후 삭제, 이력 보존·재취소 409, 삭제된 방 4요청 404, 거절 문구 | +23 |
+
+테스트 시각은 API 통합 테스트가 2026-08-25 09:00 KST 로 고정돼 있어 경계 AC(문면은 2026-11-10 10:00)는 서비스 테스트에서 `Clock.fixed` 로 AC 시각 그대로, API 테스트에서는 같은 의미의 상대 시각으로 검증한다.

@@ -4,8 +4,8 @@ import java.time.format.DateTimeFormatter;
 
 import com.sqisoft.reservation.domain.Reservation;
 
-public record ReservationResponse(Long id, Long roomId, String reserverName, String purpose,
-        String startAt, String endAt, String status) {
+public record ReservationResponse(Long id, Long roomId, Long memberId, String reserverName,
+        String purpose, String startAt, String endAt, String status) {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
@@ -13,6 +13,7 @@ public record ReservationResponse(Long id, Long roomId, String reserverName, Str
         return new ReservationResponse(
                 r.id(),
                 r.roomId(),
+                r.memberId(),
                 r.reserverName(),
                 r.purpose(),
                 r.timeSlot().start().format(FORMATTER),

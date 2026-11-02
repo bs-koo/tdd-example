@@ -1,6 +1,7 @@
 package com.sqisoft.reservation.infra;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,5 +34,10 @@ public class JpaReservationRepository implements ReservationRepository {
     public List<Reservation> findActiveByRoomIdAndDate(Long roomId, LocalDate date) {
         return jpa.findByRoomIdAndStatusAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
                 roomId, ReservationStatus.ACTIVE, date.atStartOfDay(), date.plusDays(1).atStartOfDay());
+    }
+
+    @Override
+    public boolean existsActiveByRoomIdAndEndAtAfter(Long roomId, LocalDateTime now) {
+        return jpa.existsByRoomIdAndStatusAndEndAtAfter(roomId, ReservationStatus.ACTIVE, now);
     }
 }

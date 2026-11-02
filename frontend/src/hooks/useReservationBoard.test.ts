@@ -6,15 +6,21 @@ import { ApiError } from '../api/client';
 import { useReservationBoard } from './useReservationBoard';
 
 const DEFAULT_DATE = '2026-08-26';
+const GROUP_ID = 1;
 
 const ROOMS: RoomDto[] = [
-  { id: 1, name: '대회의실', capacity: 20, location: '3층' },
-  { id: 2, name: '중회의실', capacity: 10, location: '3층' },
+  { id: 1, groupId: 1, name: '대회의실', capacity: 20, location: '3층' },
+  { id: 2, groupId: 1, name: '중회의실', capacity: 10, location: '3층' },
+];
+
+const OTHER_GROUP_ROOMS: RoomDto[] = [
+  { id: 7, groupId: 2, name: '디자인 라운지', capacity: 6, location: '5층' },
 ];
 
 const RESERVATION_ROOM1: ReservationDto = {
   id: 11,
   roomId: 1,
+  memberId: 1,
   reserverName: '김본승',
   purpose: '주간 회의',
   startAt: '2026-08-26T09:00:00',
@@ -25,6 +31,7 @@ const RESERVATION_ROOM1: ReservationDto = {
 const RESERVATION_ROOM2: ReservationDto = {
   id: 22,
   roomId: 2,
+  memberId: 2,
   reserverName: '박다른',
   purpose: '설계 리뷰',
   startAt: '2026-08-26T13:00:00',
@@ -34,7 +41,6 @@ const RESERVATION_ROOM2: ReservationDto = {
 
 const CREATE_REQUEST: CreateReservationRequest = {
   roomId: 1,
-  reserverName: '최신규',
   purpose: '신규 회의',
   startAt: '2026-08-26T11:00:00',
   endAt: '2026-08-26T11:30:00',
@@ -43,6 +49,7 @@ const CREATE_REQUEST: CreateReservationRequest = {
 const NEW_RESERVATION: ReservationDto = {
   id: 33,
   roomId: 1,
+  memberId: 1,
   reserverName: '최신규',
   purpose: '신규 회의',
   startAt: '2026-08-26T11:00:00',
@@ -53,18 +60,31 @@ const NEW_RESERVATION: ReservationDto = {
 function createFakeApi() {
   return {
     fetchRooms: vi.fn(),
+    createRoom: vi.fn(),
     fetchReservations: vi.fn(),
     createReservation: vi.fn(),
     cancelReservation: vi.fn(),
   };
 }
 
-function renderBoard(fakeApi: ReturnType<typeof createFakeApi>, initialDate: string = DEFAULT_DATE) {
-  return renderHook(() => useReservationBoard({ initialDate, api: fakeApi as unknown as ReservationApi }));
+function renderBoard(
+  fakeApi: ReturnType<typeof createFakeApi>,
+  initialDate: string = DEFAULT_DATE,
+  groupId: number | null = GROUP_ID,
+) {
+  return renderHook(
+    (props: { groupId: number | null }) =>
+      useReservationBoard({
+        initialDate,
+        groupId: props.groupId,
+        api: fakeApi as unknown as ReservationApi,
+      }),
+    { initialProps: { groupId } },
+  );
 }
 
 describe('useReservationBoard', () => {
-  it('최초 로드 시 N+1 조회로 회의실 전체의 예약을 합쳐 가져온다', async () => {
+  it('최초 로드 시 선택된 그룹의 회의실을 가져와 N+1 조회로 예약을 합친다', async () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
     api.fetchReservations.mockImplementation(async (roomId: number) =>
@@ -76,11 +96,38 @@ describe('useReservationBoard', () => {
     await waitFor(() => expect(result.current.reservations).toHaveLength(2));
 
     expect(api.fetchRooms).toHaveBeenCalledTimes(1);
+    expect(api.fetchRooms).toHaveBeenCalledWith(GROUP_ID);
     expect(api.fetchReservations).toHaveBeenCalledTimes(2);
     expect(api.fetchReservations).toHaveBeenCalledWith(1, DEFAULT_DATE);
     expect(api.fetchReservations).toHaveBeenCalledWith(2, DEFAULT_DATE);
     expect(result.current.rooms).toHaveLength(2);
     expect(result.current.reservations.map((r) => r.id)).toEqual([11, 22]);
+  });
+
+  it('선택된 그룹이 바뀌면 그 그룹의 회의실로 격자를 다시 채운다', async () => {
+    const api = createFakeApi();
+    api.fetchRooms.mockResolvedValueOnce(ROOMS).mockResolvedValue(OTHER_GROUP_ROOMS);
+    api.fetchReservations.mockResolvedValue([]);
+
+    const { result, rerender } = renderBoard(api);
+    await waitFor(() => expect(result.current.rooms).toHaveLength(2));
+
+    await act(async () => {
+      rerender({ groupId: 2 });
+    });
+
+    await waitFor(() => expect(result.current.rooms).toEqual(OTHER_GROUP_ROOMS));
+    expect(api.fetchRooms).toHaveBeenCalledWith(2);
+  });
+
+  it('선택된 그룹이 없으면 아무것도 조회하지 않고 격자를 비워 둔다', async () => {
+    const api = createFakeApi();
+
+    const { result } = renderBoard(api, DEFAULT_DATE, null);
+
+    await waitFor(() => expect(result.current.rooms).toEqual([]));
+    expect(api.fetchRooms).not.toHaveBeenCalled();
+    expect(api.fetchReservations).not.toHaveBeenCalled();
   });
 
   it('date는 initialDate로 시작한다', async () => {
@@ -96,11 +143,11 @@ describe('useReservationBoard', () => {
 
   it('최초 로드가 ApiError로 실패하면 errorCode가 해당 code로 설정된다', async () => {
     const api = createFakeApi();
-    api.fetchRooms.mockRejectedValue(new ApiError('ROOM_NOT_FOUND', 404));
+    api.fetchRooms.mockRejectedValue(new ApiError('NOT_GROUP_MEMBER', 403));
 
     const { result } = renderBoard(api);
 
-    await waitFor(() => expect(result.current.errorCode).toBe('ROOM_NOT_FOUND'));
+    await waitFor(() => expect(result.current.errorCode).toBe('NOT_GROUP_MEMBER'));
   });
 
   it('ApiError가 아닌 예외로 최초 로드가 실패하면 errorCode가 UNKNOWN이 된다', async () => {
@@ -167,7 +214,7 @@ describe('useReservationBoard', () => {
     });
   });
 
-  it('cancelReservation은 reservation에서 id와 reserverName을 분해해 api.cancelReservation을 호출한다 (§9.8)', async () => {
+  it('cancelReservation은 예약 id만 넘긴다 — 본인 확인은 토큰이 대신한다 (§9.8)', async () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
     api.fetchReservations
@@ -185,7 +232,7 @@ describe('useReservationBoard', () => {
     });
 
     expect(api.cancelReservation).toHaveBeenCalledTimes(1);
-    expect(api.cancelReservation).toHaveBeenCalledWith(11, '김본승');
+    expect(api.cancelReservation).toHaveBeenCalledWith(11);
     expect(api.fetchReservations).toHaveBeenCalledTimes(4);
   });
 

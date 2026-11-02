@@ -17,9 +17,33 @@ const NEXT_ACTIONS: Record<string, string | undefined> = {
   ALREADY_CANCELLED: '다시 시도를 눌러 최신 현황을 불러오세요.',
   RESERVATION_NOT_FOUND: '누군가 먼저 바꿨을 수 있습니다. 다시 시도를 눌러 현황을 새로 받아 주세요.',
   ROOM_NOT_FOUND: '다시 시도를 눌러 회의실 목록을 새로 받아 주세요.',
-  INVALID_RESERVER_NAME: '예약자명을 1자 이상 20자 이내로 입력해 주세요.',
   INVALID_PURPOSE_LENGTH: '회의 목적을 50자 이내로 줄여 주세요.',
   INVALID_DATE_FORMAT: '날짜를 2026-08-26 형식으로 입력해 주세요.',
+
+  // 인증
+  UNAUTHENTICATED: '로그인이 풀렸습니다. 다시 로그인해 주세요.',
+  INVALID_CREDENTIALS: '이메일과 비밀번호를 다시 확인해 주세요.',
+  EMAIL_ALREADY_REGISTERED: '로그인 탭으로 옮겨 그 이메일로 로그인해 주세요.',
+  INVALID_EMAIL_FORMAT: '이메일을 name@sqisoft.com 형식으로 입력해 주세요.',
+  INVALID_PASSWORD_LENGTH: '비밀번호를 8자 이상 64자 이하로 입력해 주세요.',
+  INVALID_MEMBER_NAME: '이름을 1자 이상 20자 이내로 입력해 주세요.',
+
+  // 그룹 · 초대
+  MEMBER_NOT_FOUND: '초대할 사람이 먼저 가입해야 합니다. 이메일을 다시 확인해 주세요.',
+  GROUP_NOT_FOUND: '그룹 목록에서 다른 그룹을 골라 주세요.',
+  INVALID_GROUP_NAME: '그룹 이름을 1자 이상 30자 이내로 입력해 주세요.',
+  NOT_GROUP_OWNER: '그룹장에게 대신 처리해 달라고 요청해 주세요.',
+  NOT_GROUP_MEMBER: '초대를 수락해 그룹에 참여한 뒤 다시 시도해 주세요.',
+  ALREADY_INVITED: '그룹원 목록에서 그 사람의 상태를 확인해 주세요.',
+  SELF_INVITATION: '초대할 사람의 이메일을 입력해 주세요.',
+  INVITATION_NOT_FOUND: '초대가 취소됐을 수 있습니다. 화면을 새로 고쳐 주세요.',
+  NOT_INVITEE: '초대받은 본인의 계정으로 로그인해 응답해 주세요.',
+  INVITATION_ALREADY_RESPONDED: '화면을 새로 고쳐 최신 초대 목록을 확인해 주세요.',
+
+  // 회의실
+  INVALID_ROOM_NAME: '회의실 이름을 1자 이상 30자 이내로 입력해 주세요.',
+  INVALID_ROOM_CAPACITY: '수용 인원을 1명 이상 999명 이하로 입력해 주세요.',
+  INVALID_ROOM_LOCATION: '위치를 1자 이상 30자 이내로 입력해 주세요.',
 };
 
 const DEFAULT_NEXT_ACTION = '잠시 후 다시 시도를 눌러 주세요. 계속되면 담당자에게 알려 주세요.';

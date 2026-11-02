@@ -8,5 +8,5 @@ import com.sqisoft.reservation.domain.Room;
 
 interface RoomJpaRepository extends JpaRepository<Room, Long> {
 
-    List<Room> findAllByOrderByIdAsc();
+    List<Room> findAllByGroupIdOrderByIdAsc(Long groupId);
 }

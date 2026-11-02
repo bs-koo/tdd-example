@@ -20,8 +20,9 @@ Thumbs.db
 .env
 .env.local
 
-# gx-tdd dev 산출물
-.dev/
+# gx-tdd dev 산출물 (작업 계획 plan.md 만 추적한다)
+.dev/*
+!.dev/plan.md
 
 # oh-my-claudecode 세션 상태 (도구 상태 — 프로젝트 산출물 아님)
 .omc/

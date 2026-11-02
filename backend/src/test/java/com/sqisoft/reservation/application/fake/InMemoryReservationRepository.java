@@ -30,6 +30,7 @@ public class InMemoryReservationRepository implements ReservationRepository {
             Reservation restored = Reservation.restore(
                     newId,
                     reservation.roomId(),
+                    reservation.memberId(),
                     reservation.reserverName(),
                     reservation.purpose(),
                     reservation.timeSlot(),
@@ -58,6 +59,7 @@ public class InMemoryReservationRepository implements ReservationRepository {
         return Reservation.restore(
                 reservation.id(),
                 reservation.roomId(),
+                reservation.memberId(),
                 reservation.reserverName(),
                 reservation.purpose(),
                 reservation.timeSlot(),
@@ -80,6 +82,13 @@ public class InMemoryReservationRepository implements ReservationRepository {
                 .sorted(Comparator.comparing(reservation -> reservation.timeSlot().start()))
                 .map(InMemoryReservationRepository::copyOf)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean existsActiveByRoomIdAndEndAtAfter(Long roomId, LocalDateTime now) {
+        return store.values().stream()
+                .filter(reservation -> reservation.roomId().equals(roomId))
+                .anyMatch(reservation -> reservation.isOngoingOrUpcomingAt(now));
     }
 
     /**

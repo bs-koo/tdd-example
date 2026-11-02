@@ -20,6 +20,8 @@ public class Reservation {
 
     private Long roomId;
 
+    private Long memberId;
+
     private String reserverName;
 
     private String purpose;
@@ -36,10 +38,11 @@ public class Reservation {
     protected Reservation() {
     }
 
-    private Reservation(Long id, Long roomId, String reserverName, String purpose,
+    private Reservation(Long id, Long roomId, Long memberId, String reserverName, String purpose,
             TimeSlot slot, ReservationStatus status, LocalDateTime createdAt) {
         this.id = id;
         this.roomId = roomId;
+        this.memberId = memberId;
         this.reserverName = reserverName;
         this.purpose = purpose;
         this.startAt = slot.start();
@@ -48,17 +51,17 @@ public class Reservation {
         this.createdAt = createdAt;
     }
 
-    public static Reservation create(Long roomId, String reserverName, String purpose,
+    public static Reservation create(Long roomId, Long memberId, String reserverName, String purpose,
             TimeSlot slot, LocalDateTime createdAt) {
-        String normalizedName = reserverName.trim();
+        String normalizedName = reserverName == null ? "" : reserverName.trim();
         String normalizedPurpose = purpose == null ? "" : purpose;
-        return new Reservation(null, roomId, normalizedName, normalizedPurpose, slot,
+        return new Reservation(null, roomId, memberId, normalizedName, normalizedPurpose, slot,
                 ReservationStatus.ACTIVE, createdAt);
     }
 
-    public static Reservation restore(Long id, Long roomId, String reserverName, String purpose,
+    public static Reservation restore(Long id, Long roomId, Long memberId, String reserverName, String purpose,
             TimeSlot slot, ReservationStatus status, LocalDateTime createdAt) {
-        return new Reservation(id, roomId, reserverName, purpose, slot, status, createdAt);
+        return new Reservation(id, roomId, memberId, reserverName, purpose, slot, status, createdAt);
     }
 
     public Long id() {
@@ -67,6 +70,10 @@ public class Reservation {
 
     public Long roomId() {
         return roomId;
+    }
+
+    public Long memberId() {
+        return memberId;
     }
 
     public String reserverName() {
@@ -93,13 +100,18 @@ public class Reservation {
         return status == ReservationStatus.ACTIVE;
     }
 
+    /** 종료 시각이 기준 시각과 같으면 이미 끝난 예약으로 본다(반개구간). */
+    public boolean isOngoingOrUpcomingAt(LocalDateTime now) {
+        return isActive() && endAt.isAfter(now);
+    }
+
     public boolean overlapsWith(TimeSlot other) {
         return isActive() && timeSlot().overlaps(other);
     }
 
-    public void cancel(String requesterName) {
-        String normalized = (requesterName == null) ? null : requesterName.trim();
-        if (!this.reserverName.equals(normalized)) {
+    /** 취소 권한은 표시용 예약자명이 아니라 예약을 만든 신원으로 판정한다. */
+    public void cancel(Long requesterId) {
+        if (requesterId == null || !requesterId.equals(this.memberId)) {
             throw new ReservationException(ReservationErrorCode.NOT_RESERVER);
         }
         if (this.status == ReservationStatus.CANCELLED) {

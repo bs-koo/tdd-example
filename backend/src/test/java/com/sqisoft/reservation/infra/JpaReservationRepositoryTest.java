@@ -103,7 +103,7 @@ class JpaReservationRepositoryTest {
     void CANCELLED_상태의_예약은_조회_결과에서_제외된다() {
         Reservation active = repository.save(newReservation(ReservationTestFixtures.DEFAULT_DATE, "09:00", "10:00"));
         Reservation toCancel = repository.save(newReservation(ReservationTestFixtures.DEFAULT_DATE, "11:00", "12:00"));
-        toCancel.cancel(ReservationTestFixtures.RESERVER);
+        toCancel.cancel(ReservationTestFixtures.MEMBER_ID);
         repository.save(toCancel);
 
         List<Reservation> result = repository.findActiveByRoomIdAndDate(
@@ -158,13 +158,65 @@ class JpaReservationRepositoryTest {
         // em.detach로 reloaded 하나만 명시적으로 준영속화해 cancel()이 순수 POJO 변이가 되도록 만든다.
         em.detach(reloaded);
 
-        reloaded.cancel(ReservationTestFixtures.RESERVER);
+        reloaded.cancel(ReservationTestFixtures.MEMBER_ID);
         repository.save(reloaded);
         em.flush();
         em.clear();
 
         Reservation refetched = repository.findById(id).orElseThrow();
         assertThat(refetched.status()).isEqualTo(ReservationStatus.CANCELLED);
+    }
+
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 10, 10, 0);
+
+    @Test
+    @DisplayName("AC-24: 방에 내일의 ACTIVE 예약이 있으면 existsActiveByRoomIdAndEndAtAfter는 true다")
+    void 내일의_ACTIVE_예약이_있으면_existsActive는_true다() {
+        repository.save(newReservationForRoom(1L, LocalDate.of(2026, 11, 11), "09:00", "10:00"));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-25: 진행 중인 ACTIVE 예약이 있으면 existsActive는 true다")
+    void 진행_중인_ACTIVE_예약이_있으면_existsActive는_true다() {
+        repository.save(newReservationForRoom(1L, LocalDate.of(2026, 11, 10), "09:30", "10:30"));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-25: 종료 시각이 정확히 기준 시각인 ACTIVE 예약만 있으면 existsActive는 false다")
+    void 종료가_기준_시각과_같은_예약만_있으면_existsActive는_false다() {
+        repository.save(newReservationForRoom(1L, LocalDate.of(2026, 11, 10), "09:00", "10:00"));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-25: 미래의 CANCELLED 예약만 있으면 existsActive는 false다")
+    void 미래의_CANCELLED_예약만_있으면_existsActive는_false다() {
+        Reservation saved = repository.save(newReservationForRoom(1L, LocalDate.of(2026, 11, 11), "09:00", "10:00"));
+        saved.cancel(ReservationTestFixtures.MEMBER_ID);
+        repository.save(saved);
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-25: 어제의 ACTIVE 예약만 있으면 existsActive는 false다")
+    void 어제의_ACTIVE_예약만_있으면_existsActive는_false다() {
+        repository.save(newReservationForRoom(1L, LocalDate.of(2026, 11, 9), "09:00", "10:00"));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("다른 방의 앞으로의 ACTIVE 예약은 existsActive 판정에서 무시된다")
+    void 다른_방의_앞으로의_예약은_existsActive에서_무시된다() {
+        repository.save(newReservationForRoom(2L, LocalDate.of(2026, 11, 11), "09:00", "10:00"));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
     }
 
     private static Reservation newReservation(LocalDate date, String startHHmm, String endHHmm) {
@@ -174,6 +226,7 @@ class JpaReservationRepositoryTest {
     private static Reservation newReservationForRoom(Long roomId, LocalDate date, String startHHmm, String endHHmm) {
         return Reservation.create(
                 roomId,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.slot(date, startHHmm, endHHmm),

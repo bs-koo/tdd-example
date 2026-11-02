@@ -5,6 +5,7 @@ import { findReservationAt } from './reservationLookup';
 const BASE_RESERVATION: ReservationDto = {
   id: 1,
   roomId: 1,
+  memberId: 1,
   reserverName: '김본승',
   purpose: '주간 회의',
   startAt: '2026-08-26T09:00:00',
@@ -46,6 +47,7 @@ describe('findReservationAt', () => {
     const second: ReservationDto = {
       id: 2,
       roomId: 1,
+      memberId: 2,
       reserverName: '이몽룡',
       purpose: '면접',
       startAt: '2026-08-26T11:00:00',

@@ -5,15 +5,16 @@ import type { RoomDto, ReservationDto } from '../types';
 import TimeSlotGrid from './TimeSlotGrid';
 
 const ROOMS: RoomDto[] = [
-  { id: 1, name: '대회의실', capacity: 20, location: '3층' },
-  { id: 2, name: '중회의실', capacity: 10, location: '3층' },
-  { id: 3, name: '소회의실1', capacity: 4, location: '4층' },
-  { id: 4, name: '소회의실2', capacity: 4, location: '4층' },
+  { id: 1, groupId: 1, name: '대회의실', capacity: 20, location: '3층' },
+  { id: 2, groupId: 1, name: '중회의실', capacity: 10, location: '3층' },
+  { id: 3, groupId: 1, name: '소회의실1', capacity: 4, location: '4층' },
+  { id: 4, groupId: 1, name: '소회의실2', capacity: 4, location: '4층' },
 ];
 
 const ACTIVE_RESERVATION: ReservationDto = {
   id: 1,
   roomId: 1,
+  memberId: 1,
   reserverName: '김본승',
   purpose: '주간 회의',
   startAt: '2026-08-26T09:00:00',

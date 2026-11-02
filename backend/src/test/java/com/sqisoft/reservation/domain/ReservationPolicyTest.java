@@ -26,7 +26,7 @@ class ReservationPolicyTest {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "09:30");
 
         assertThatNoException()
-                .isThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot));
+                .isThrownBy(() -> policy.validate(null, slot));
     }
 
     @Test
@@ -34,7 +34,7 @@ class ReservationPolicyTest {
     void 삼십분_단위가_아니면_INVALID_TIME_UNIT_예외를_던진다() {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("09:15", "09:45");
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.INVALID_TIME_UNIT);
@@ -46,7 +46,7 @@ class ReservationPolicyTest {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("17:30", "18:00");
 
         assertThatNoException()
-                .isThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot));
+                .isThrownBy(() -> policy.validate(null, slot));
     }
 
     @Test
@@ -54,7 +54,7 @@ class ReservationPolicyTest {
     void 영업_시작_전_시각은_OUTSIDE_BUSINESS_HOURS_예외를_던진다() {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("08:30", "09:00");
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.OUTSIDE_BUSINESS_HOURS);
@@ -65,7 +65,7 @@ class ReservationPolicyTest {
     void 종료_시각이_18시_초과면_OUTSIDE_BUSINESS_HOURS_예외를_던진다() {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("18:00", "18:30");
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.OUTSIDE_BUSINESS_HOURS);
@@ -76,7 +76,7 @@ class ReservationPolicyTest {
     void 예약_시간이_0분이면_INVALID_DURATION_예외를_던진다() {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "09:00");
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.INVALID_DURATION);
@@ -88,7 +88,7 @@ class ReservationPolicyTest {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "13:00");
 
         assertThatNoException()
-                .isThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot));
+                .isThrownBy(() -> policy.validate(null, slot));
     }
 
     @Test
@@ -96,7 +96,7 @@ class ReservationPolicyTest {
     void 사시간_초과_예약은_INVALID_DURATION_예외를_던진다() {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "13:30");
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.INVALID_DURATION);
@@ -107,7 +107,7 @@ class ReservationPolicyTest {
     void 오늘_08시30분_시작은_현재보다_과거이므로_PAST_DATETIME_예외를_던진다() {
         TimeSlot slot = ReservationTestFixtures.slot(ReservationTestFixtures.TODAY, "08:30", "09:00");
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.PAST_DATETIME);
@@ -119,7 +119,7 @@ class ReservationPolicyTest {
         TimeSlot slot = ReservationTestFixtures.slot(ReservationTestFixtures.TODAY, "09:00", "09:30");
 
         assertThatNoException()
-                .isThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot));
+                .isThrownBy(() -> policy.validate(null, slot));
     }
 
     @Test
@@ -128,7 +128,7 @@ class ReservationPolicyTest {
         TimeSlot slot = ReservationTestFixtures.slot(ReservationTestFixtures.MAX_DATE, "09:00", "10:00");
 
         assertThatNoException()
-                .isThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot));
+                .isThrownBy(() -> policy.validate(null, slot));
     }
 
     @Test
@@ -136,54 +136,10 @@ class ReservationPolicyTest {
     void 십오일_후_예약은_TOO_FAR_IN_FUTURE_예외를_던진다() {
         TimeSlot slot = ReservationTestFixtures.slot(ReservationTestFixtures.OVER_MAX_DATE, "09:00", "10:00");
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.TOO_FAR_IN_FUTURE);
-    }
-
-    @Test
-    @DisplayName("AC-18: 예약자명이 빈 문자열이면 INVALID_RESERVER_NAME 예외를 던진다")
-    void 예약자명이_빈_문자열이면_INVALID_RESERVER_NAME_예외를_던진다() {
-        TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "10:00");
-
-        assertThatThrownBy(() -> policy.validate("", null, slot))
-                .isInstanceOf(ReservationException.class)
-                .extracting(e -> ((ReservationException) e).code())
-                .isEqualTo(ReservationErrorCode.INVALID_RESERVER_NAME);
-    }
-
-    @Test
-    @DisplayName("AC-18b(경계): 예약자명이 21자이면 INVALID_RESERVER_NAME 예외를 던진다")
-    void 예약자명이_21자이면_INVALID_RESERVER_NAME_예외를_던진다() {
-        TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "10:00");
-        String tooLongName = "가".repeat(21);
-
-        assertThatThrownBy(() -> policy.validate(tooLongName, null, slot))
-                .isInstanceOf(ReservationException.class)
-                .extracting(e -> ((ReservationException) e).code())
-                .isEqualTo(ReservationErrorCode.INVALID_RESERVER_NAME);
-    }
-
-    @Test
-    @DisplayName("경계: 예약자명이 정확히 20자이면 통과한다")
-    void 예약자명이_정확히_20자이면_통과한다() {
-        TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "09:30");
-        String exactlyTwentyChars = "가".repeat(20);
-
-        assertThatNoException()
-                .isThrownBy(() -> policy.validate(exactlyTwentyChars, null, slot));
-    }
-
-    @Test
-    @DisplayName("경계: 예약자명이 공백만으로 이루어지면 INVALID_RESERVER_NAME 예외를 던진다")
-    void 예약자명이_공백만이면_INVALID_RESERVER_NAME_예외를_던진다() {
-        TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "10:00");
-
-        assertThatThrownBy(() -> policy.validate("   ", null, slot))
-                .isInstanceOf(ReservationException.class)
-                .extracting(e -> ((ReservationException) e).code())
-                .isEqualTo(ReservationErrorCode.INVALID_RESERVER_NAME);
     }
 
     @Test
@@ -192,7 +148,7 @@ class ReservationPolicyTest {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "10:00");
         String tooLongPurpose = "가".repeat(51);
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, tooLongPurpose, slot))
+        assertThatThrownBy(() -> policy.validate(tooLongPurpose, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.INVALID_PURPOSE_LENGTH);
@@ -205,7 +161,7 @@ class ReservationPolicyTest {
         String exactlyFiftyChars = "가".repeat(50);
 
         assertThatNoException()
-                .isThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, exactlyFiftyChars, slot));
+                .isThrownBy(() -> policy.validate(exactlyFiftyChars, slot));
     }
 
     @Test
@@ -214,7 +170,7 @@ class ReservationPolicyTest {
         TimeSlot slot = ReservationTestFixtures.defaultSlot("09:00", "09:30");
 
         assertThatNoException()
-                .isThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, "", slot));
+                .isThrownBy(() -> policy.validate("", slot));
     }
 
     @Test
@@ -224,7 +180,7 @@ class ReservationPolicyTest {
         LocalDateTime end = ReservationTestFixtures.at(ReservationTestFixtures.DEFAULT_DATE, "10:00");
         TimeSlot slot = new TimeSlot(start, end);
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.INVALID_TIME_UNIT);
@@ -237,7 +193,7 @@ class ReservationPolicyTest {
         LocalDateTime end = ReservationTestFixtures.at(ReservationTestFixtures.DEFAULT_DATE, "10:00");
         TimeSlot slot = new TimeSlot(start, end);
 
-        assertThatThrownBy(() -> policy.validate(ReservationTestFixtures.RESERVER, null, slot))
+        assertThatThrownBy(() -> policy.validate(null, slot))
                 .isInstanceOf(ReservationException.class)
                 .extracting(e -> ((ReservationException) e).code())
                 .isEqualTo(ReservationErrorCode.INVALID_TIME_UNIT);

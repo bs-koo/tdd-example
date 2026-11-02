@@ -6,7 +6,7 @@
 
 | 도메인 | 설명 | 상세 |
 |--------|------|------|
-| reservation | 회의실 예약 — 조회·예약·취소와 겹침 판정 규칙 | [상세](reservation/README.md) |
+| reservation | 회의실 예약 — 겹침·정책 판정, 로그인, 그룹 소유 회의실과 권한 | [상세](reservation/README.md) |
 
 ## 공통
 
