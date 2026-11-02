@@ -14,16 +14,16 @@ import com.sqisoft.reservation.domain.TimeSlot;
 public class ReservationService {
 
     private final ReservationRepository reservationRepository;
-    private final RoomRepository roomRepository;
+    private final RoomService roomService;
     private final ReservationPolicy policy;
     private final Clock clock;
 
     public ReservationService(ReservationRepository reservationRepository,
-            RoomRepository roomRepository,
+            RoomService roomService,
             ReservationPolicy policy,
             Clock clock) {
         this.reservationRepository = reservationRepository;
-        this.roomRepository = roomRepository;
+        this.roomService = roomService;
         this.policy = policy;
         this.clock = clock;
     }
@@ -31,11 +31,8 @@ public class ReservationService {
     public Reservation reserve(CreateReservationCommand command) {
         TimeSlot slot = new TimeSlot(command.startAt(), command.endAt());
 
-        policy.validate(command.reserverName(), command.purpose(), slot);
-
-        if (command.roomId() == null || !roomRepository.existsById(command.roomId())) {
-            throw new ReservationException(ReservationErrorCode.ROOM_NOT_FOUND);
-        }
+        policy.validate(command.purpose(), slot);
+        roomService.requireAccessibleRoom(command.roomId(), command.memberId());
 
         boolean overlaps = reservationRepository
                 .findActiveByRoomIdAndDate(command.roomId(), slot.date())
@@ -45,22 +42,20 @@ public class ReservationService {
         }
 
         Reservation reservation = Reservation.create(
-                command.roomId(), command.reserverName(), command.purpose(), slot,
+                command.roomId(), command.memberId(), command.reserverName(), command.purpose(), slot,
                 LocalDateTime.now(clock));
         return reservationRepository.save(reservation);
     }
 
-    public void cancel(Long reservationId, String requesterName) {
+    public void cancel(Long reservationId, Long requesterId) {
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ReservationException(ReservationErrorCode.RESERVATION_NOT_FOUND));
-        reservation.cancel(requesterName);
+        reservation.cancel(requesterId);
         reservationRepository.save(reservation);
     }
 
-    public List<Reservation> findActiveByRoomAndDate(Long roomId, LocalDate date) {
-        if (!roomRepository.existsById(roomId)) {
-            throw new ReservationException(ReservationErrorCode.ROOM_NOT_FOUND);
-        }
+    public List<Reservation> findActiveByRoomAndDate(Long roomId, Long memberId, LocalDate date) {
+        roomService.requireAccessibleRoom(roomId, memberId);
         return reservationRepository.findActiveByRoomIdAndDate(roomId, date);
     }
 }

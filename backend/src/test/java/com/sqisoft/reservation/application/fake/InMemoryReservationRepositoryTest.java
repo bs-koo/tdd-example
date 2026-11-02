@@ -19,6 +19,8 @@ class InMemoryReservationRepositoryTest {
 
     private static final LocalDateTime CREATED_AT =
             ReservationTestFixtures.at(ReservationTestFixtures.DEFAULT_DATE, "08:00");
+    private static final Long GROUP_ID = ReservationTestFixtures.GROUP_ID;
+    private static final Long OTHER_GROUP_ID = 2L;
 
     @Test
     @DisplayName("id가 null인 예약을 save하면 1부터 증가하는 id가 부여된다")
@@ -99,6 +101,7 @@ class InMemoryReservationRepositoryTest {
                 Reservation.restore(
                         2L,
                         ReservationTestFixtures.ROOM_ID,
+                        ReservationTestFixtures.MEMBER_ID,
                         ReservationTestFixtures.RESERVER,
                         "주간 회의",
                         ReservationTestFixtures.slot(nextDate, "09:00", "10:00"),
@@ -116,9 +119,9 @@ class InMemoryReservationRepositoryTest {
     void 같은_날짜라도_다른_방의_예약은_조회_결과에서_제외된다() {
         InMemoryReservationRepository repository = new InMemoryReservationRepository();
         repository.seed(
-                Reservation.restore(1L, 1L, ReservationTestFixtures.RESERVER, "주간 회의",
+                Reservation.restore(1L, 1L, ReservationTestFixtures.MEMBER_ID, ReservationTestFixtures.RESERVER, "주간 회의",
                         ReservationTestFixtures.defaultSlot("09:00", "10:00"), ReservationStatus.ACTIVE, CREATED_AT),
-                Reservation.restore(2L, 2L, ReservationTestFixtures.RESERVER, "주간 회의",
+                Reservation.restore(2L, 2L, ReservationTestFixtures.MEMBER_ID, ReservationTestFixtures.RESERVER, "주간 회의",
                         ReservationTestFixtures.defaultSlot("09:00", "10:00"), ReservationStatus.ACTIVE, CREATED_AT));
 
         List<Reservation> result = repository.findActiveByRoomIdAndDate(1L, ReservationTestFixtures.DEFAULT_DATE);
@@ -167,6 +170,7 @@ class InMemoryReservationRepositoryTest {
         assertThat(found).isNotSameAs(saved);
         assertThat(found.id()).isEqualTo(saved.id());
         assertThat(found.roomId()).isEqualTo(saved.roomId());
+        assertThat(found.memberId()).isEqualTo(saved.memberId());
         assertThat(found.reserverName()).isEqualTo(saved.reserverName());
         assertThat(found.purpose()).isEqualTo(saved.purpose());
         assertThat(found.timeSlot()).isEqualTo(saved.timeSlot());
@@ -175,19 +179,42 @@ class InMemoryReservationRepositoryTest {
     }
 
     @Test
-    @DisplayName("findAll은 생성자에 전달한 순서를 그대로 유지한다")
-    void findAll은_생성자에_전달한_순서를_그대로_유지한다() {
-        Room second = Room.of(2L, "소회의실", 4, "2층");
-        Room first = Room.of(1L, "대회의실", 20, "3층");
-        InMemoryRoomRepository repository = new InMemoryRoomRepository(second, first);
+    @DisplayName("findAllByGroupId는 그 그룹의 회의실만 id 오름차순으로 반환한다")
+    void findAllByGroupId는_그_그룹의_회의실만_id_오름차순으로_반환한다() {
+        InMemoryRoomRepository repository = new InMemoryRoomRepository(
+                Room.restore(2L, GROUP_ID, "소회의실", 4, "2층"),
+                Room.restore(1L, GROUP_ID, "대회의실", 20, "3층"),
+                Room.restore(3L, OTHER_GROUP_ID, "타그룹 회의실", 8, "5층"));
 
-        assertThat(repository.findAll()).extracting(Room::id).containsExactly(2L, 1L);
+        assertThat(repository.findAllByGroupId(GROUP_ID))
+                .extracting(Room::id).containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("id가 null인 회의실을 save하면 id가 부여된 새 인스턴스를 반환한다")
+    void id가_null인_회의실을_save하면_id가_부여된다() {
+        InMemoryRoomRepository repository = new InMemoryRoomRepository();
+
+        Room saved = repository.save(Room.create(GROUP_ID, "대회의실", 20, "3층"));
+
+        assertThat(saved.id()).isNotNull();
+        assertThat(repository.findById(saved.id())).isPresent();
+    }
+
+    @Test
+    @DisplayName("findById는 null을 받으면 Optional_empty를 반환한다")
+    void findById는_null을_받으면_Optional_empty를_반환한다() {
+        InMemoryRoomRepository repository = new InMemoryRoomRepository(
+                Room.restore(1L, GROUP_ID, "대회의실", 20, "3층"));
+
+        assertThat(repository.findById(null)).isEmpty();
     }
 
     @Test
     @DisplayName("existsById는 존재하는 id에 true를 반환한다")
     void existsById는_존재하는_id에_true를_반환한다() {
-        InMemoryRoomRepository repository = new InMemoryRoomRepository(Room.of(1L, "대회의실", 20, "3층"));
+        InMemoryRoomRepository repository = new InMemoryRoomRepository(
+                Room.restore(1L, GROUP_ID, "대회의실", 20, "3층"));
 
         assertThat(repository.existsById(1L)).isTrue();
     }
@@ -195,14 +222,78 @@ class InMemoryReservationRepositoryTest {
     @Test
     @DisplayName("existsById는 존재하지 않는 id에 false를 반환한다")
     void existsById는_존재하지_않는_id에_false를_반환한다() {
-        InMemoryRoomRepository repository = new InMemoryRoomRepository(Room.of(1L, "대회의실", 20, "3층"));
+        InMemoryRoomRepository repository = new InMemoryRoomRepository(
+                Room.restore(1L, GROUP_ID, "대회의실", 20, "3층"));
 
         assertThat(repository.existsById(999L)).isFalse();
+    }
+
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 10, 10, 0);
+
+    private static Reservation reservationOn(Long id, Long roomId, LocalDate date, String start, String end,
+                                             ReservationStatus status) {
+        return Reservation.restore(id, roomId, ReservationTestFixtures.MEMBER_ID, ReservationTestFixtures.RESERVER,
+                "주간 회의", ReservationTestFixtures.slot(date, start, end), status, CREATED_AT);
+    }
+
+    @Test
+    @DisplayName("AC-24: 방에 내일의 ACTIVE 예약이 있으면 existsActiveByRoomIdAndEndAtAfter는 true다")
+    void 내일의_ACTIVE_예약이_있으면_existsActive는_true다() {
+        InMemoryReservationRepository repository = new InMemoryReservationRepository();
+        repository.seed(reservationOn(1L, 1L, LocalDate.of(2026, 11, 11), "09:00", "10:00", ReservationStatus.ACTIVE));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-25: 진행 중인 ACTIVE 예약이 있으면 existsActive는 true다")
+    void 진행_중인_ACTIVE_예약이_있으면_existsActive는_true다() {
+        InMemoryReservationRepository repository = new InMemoryReservationRepository();
+        repository.seed(reservationOn(1L, 1L, LocalDate.of(2026, 11, 10), "09:30", "10:30", ReservationStatus.ACTIVE));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-25: 종료 시각이 정확히 기준 시각인 ACTIVE 예약만 있으면 existsActive는 false다")
+    void 종료가_기준_시각과_같은_예약만_있으면_existsActive는_false다() {
+        InMemoryReservationRepository repository = new InMemoryReservationRepository();
+        repository.seed(reservationOn(1L, 1L, LocalDate.of(2026, 11, 10), "09:00", "10:00", ReservationStatus.ACTIVE));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-25: 미래의 CANCELLED 예약만 있으면 existsActive는 false다")
+    void 미래의_CANCELLED_예약만_있으면_existsActive는_false다() {
+        InMemoryReservationRepository repository = new InMemoryReservationRepository();
+        repository.seed(reservationOn(1L, 1L, LocalDate.of(2026, 11, 11), "09:00", "10:00", ReservationStatus.CANCELLED));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-25: 어제의 ACTIVE 예약만 있으면 existsActive는 false다")
+    void 어제의_ACTIVE_예약만_있으면_existsActive는_false다() {
+        InMemoryReservationRepository repository = new InMemoryReservationRepository();
+        repository.seed(reservationOn(1L, 1L, LocalDate.of(2026, 11, 9), "09:00", "10:00", ReservationStatus.ACTIVE));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("다른 방의 앞으로의 ACTIVE 예약은 existsActive 판정에서 무시된다")
+    void 다른_방의_앞으로의_예약은_existsActive에서_무시된다() {
+        InMemoryReservationRepository repository = new InMemoryReservationRepository();
+        repository.seed(reservationOn(1L, 2L, LocalDate.of(2026, 11, 11), "09:00", "10:00", ReservationStatus.ACTIVE));
+
+        assertThat(repository.existsActiveByRoomIdAndEndAtAfter(1L, NOW)).isFalse();
     }
 
     private static Reservation newReservation(String startHHmm, String endHHmm) {
         return Reservation.create(
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot(startHHmm, endHHmm),
@@ -213,6 +304,7 @@ class InMemoryReservationRepositoryTest {
         return Reservation.restore(
                 id,
                 ReservationTestFixtures.ROOM_ID,
+                ReservationTestFixtures.MEMBER_ID,
                 ReservationTestFixtures.RESERVER,
                 "주간 회의",
                 ReservationTestFixtures.defaultSlot(startHHmm, endHHmm),

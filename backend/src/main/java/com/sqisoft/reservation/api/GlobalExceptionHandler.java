@@ -5,14 +5,14 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.sqisoft.reservation.domain.AppException;
 import com.sqisoft.reservation.domain.ReservationErrorCode;
-import com.sqisoft.reservation.domain.ReservationException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ReservationException.class)
-    public ResponseEntity<ErrorResponse> handle(ReservationException e) {
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ErrorResponse> handle(AppException e) {
         return ResponseEntity.status(ErrorCodeHttpStatus.of(e.code()))
                 .body(ErrorResponse.from(e.code()));
     }

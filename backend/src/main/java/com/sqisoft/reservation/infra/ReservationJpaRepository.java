@@ -12,4 +12,6 @@ interface ReservationJpaRepository extends JpaRepository<Reservation, Long> {
 
     List<Reservation> findByRoomIdAndStatusAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
             Long roomId, ReservationStatus status, LocalDateTime from, LocalDateTime to);
+
+    boolean existsByRoomIdAndStatusAndEndAtAfter(Long roomId, ReservationStatus status, LocalDateTime endAt);
 }

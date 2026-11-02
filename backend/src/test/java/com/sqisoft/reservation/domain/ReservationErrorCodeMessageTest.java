@@ -22,18 +22,29 @@ class ReservationErrorCodeMessageTest {
             "ALREADY_CANCELLED, 이미 취소된 예약입니다.",
             "RESERVATION_NOT_FOUND, 예약을 찾을 수 없습니다.",
             "ROOM_NOT_FOUND, 회의실을 찾을 수 없습니다.",
-            "INVALID_RESERVER_NAME, 예약자명은 1~20자로 입력해주세요.",
             "INVALID_PURPOSE_LENGTH, 회의 목적은 50자 이내로 입력해주세요.",
             "INVALID_DATE_FORMAT, 날짜 형식이 올바르지 않습니다.",
+            "INVALID_ROOM_NAME, 회의실 이름은 1~30자로 입력해주세요.",
+            "INVALID_ROOM_CAPACITY, 수용 인원은 1명 이상 999명 이하여야 합니다.",
+            "INVALID_ROOM_LOCATION, 위치는 1~30자로 입력해주세요.",
+            "ROOM_HAS_ACTIVE_RESERVATIONS, 예정된 예약이 있어 삭제할 수 없습니다. 예약을 먼저 취소해주세요.",
     })
     void 오류_코드는_정해진_한국어_문구로_변환된다(ReservationErrorCode code, String expectedMessage) {
         assertThat(code.message()).isEqualTo(expectedMessage);
     }
 
     @Test
-    @DisplayName("오류 코드는 정확히 13종이다")
-    void 오류_코드는_정확히_13종이다() {
-        assertThat(ReservationErrorCode.values()).hasSize(13);
+    @DisplayName("오류 코드는 정확히 16종이다")
+    void 오류_코드는_정확히_16종이다() {
+        assertThat(ReservationErrorCode.values()).hasSize(16);
+    }
+
+    @Test
+    @DisplayName("예약자명 검증이 사라졌으므로 INVALID_RESERVER_NAME 코드도 더 이상 존재하지 않는다")
+    void INVALID_RESERVER_NAME_코드는_더_이상_존재하지_않는다() {
+        assertThat(ReservationErrorCode.values())
+                .extracting(Enum::name)
+                .doesNotContain("INVALID_RESERVER_NAME");
     }
 
     @Test

@@ -1,15 +1,13 @@
 package com.sqisoft.reservation.domain;
 
-public class ReservationException extends RuntimeException {
-
-    private final ReservationErrorCode code;
+public class ReservationException extends AppException {
 
     public ReservationException(ReservationErrorCode code) {
-        super(code.message());
-        this.code = code;
+        super(code);
     }
 
+    @Override
     public ReservationErrorCode code() {
-        return code;
+        return (ReservationErrorCode) super.code();
     }
 }

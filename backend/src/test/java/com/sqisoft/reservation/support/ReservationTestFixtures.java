@@ -19,6 +19,9 @@ public final class ReservationTestFixtures {
     public static final LocalDate OVER_MAX_DATE = LocalDate.of(2026, 9, 9);
     public static final Long ROOM_ID = 1L;
     public static final String RESERVER = "김본승";
+    public static final Long GROUP_ID = 1L;
+    public static final Long MEMBER_ID = 10L;
+    public static final Long OTHER_MEMBER_ID = 20L;
 
     private ReservationTestFixtures() {
     }

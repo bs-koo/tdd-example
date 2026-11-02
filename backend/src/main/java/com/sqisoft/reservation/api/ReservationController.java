@@ -8,10 +8,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sqisoft.reservation.api.dto.CancelReservationRequest;
 import com.sqisoft.reservation.api.dto.CreateReservationRequest;
 import com.sqisoft.reservation.api.dto.ReservationResponse;
 import com.sqisoft.reservation.application.ReservationService;
+import com.sqisoft.reservation.domain.Member;
 import com.sqisoft.reservation.domain.Reservation;
 
 @RestController
@@ -26,14 +26,16 @@ public class ReservationController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ReservationResponse create(@RequestBody CreateReservationRequest request) {
-        Reservation reservation = reservationService.reserve(request.toCommand());
+    public ReservationResponse create(@LoginMember Member member,
+            @RequestBody CreateReservationRequest request) {
+        Reservation reservation = reservationService.reserve(
+                request.toCommand(member.id(), member.name()));
         return ReservationResponse.from(reservation);
     }
 
     @PostMapping("/{id}/cancel")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cancel(@PathVariable Long id, @RequestBody CancelReservationRequest request) {
-        reservationService.cancel(id, request.reserverName());
+    public void cancel(@LoginMember Member member, @PathVariable Long id) {
+        reservationService.cancel(id, member.id());
     }
 }

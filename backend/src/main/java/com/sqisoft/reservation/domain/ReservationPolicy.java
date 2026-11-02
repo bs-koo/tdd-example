@@ -14,7 +14,6 @@ public class ReservationPolicy {
     static final Duration MIN_DURATION = Duration.ofMinutes(30);
     static final Duration MAX_DURATION = Duration.ofHours(4);
     static final int MAX_ADVANCE_DAYS = 14;
-    static final int RESERVER_NAME_MAX = 20;
     static final int PURPOSE_MAX = 50;
 
     private final Clock clock;
@@ -23,14 +22,7 @@ public class ReservationPolicy {
         this.clock = clock;
     }
 
-    public void validate(String reserverName, String purpose, TimeSlot slot) {
-        if (reserverName == null) {
-            throw new ReservationException(ReservationErrorCode.INVALID_RESERVER_NAME);
-        }
-        String trimmedReserverName = reserverName.trim();
-        if (trimmedReserverName.isEmpty() || trimmedReserverName.length() > RESERVER_NAME_MAX) {
-            throw new ReservationException(ReservationErrorCode.INVALID_RESERVER_NAME);
-        }
+    public void validate(String purpose, TimeSlot slot) {
         if (purpose != null && purpose.length() > PURPOSE_MAX) {
             throw new ReservationException(ReservationErrorCode.INVALID_PURPOSE_LENGTH);
         }
