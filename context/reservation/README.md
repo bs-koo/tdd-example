@@ -51,14 +51,14 @@
 
 ## 현재 상태
 
-**구현 완료 — MVP(Phase 0~7) + 로그인·그룹·그룹 전용 회의실(Phase 8)** (2026-11-02 실측)
+**구현 완료 — MVP(Phase 0~7) + 로그인·그룹·그룹 전용 회의실(Phase 8) + 회의실 수정·삭제 백엔드(W10)** (2026-11-02 실측)
 
 | 항목 | 값 |
 |------|-----|
-| 백엔드 테스트 | 407 (0 failures) |
+| 백엔드 테스트 | 545 (0 failures) |
 | 프론트 테스트 | 251 / 22파일 (0 failures) |
-| 합계 | **658** |
-| 브랜치 | `feat/room-reservation` — Phase 8 작업분은 **아직 커밋되지 않았다** |
+| 합계 | **796** |
+| 브랜치 | `feat/room-edit-delete` — Phase 8 + W10, PR [#1](https://github.com/bs-koo/tdd-example/pull/1) (머지 전) |
 
 남은 작업은 [`.dev/plan.md`](../../.dev/plan.md) 의 `대기` 행이다. `/gx-tdd --work W0N` 으로 하나씩 가져간다.
 

@@ -36,12 +36,12 @@ domain/          Spring 무의존. new 로 만들어 즉시 단위 테스트 가
   Group / GroupMembership / GroupRole / MembershipStatus
   ErrorCode (interface)                    오류 코드의 공통 계약
   AppException                             코드를 실어 나르는 예외의 뿌리
-  ReservationErrorCode(15) / AuthErrorCode(7) / GroupErrorCode(9)   총 31종
+  ReservationErrorCode(16) / AuthErrorCode(7) / GroupErrorCode(9)   총 32종
 application/     포트 인터페이스에만 의존
   AuthService        가입·로그인·인증·로그아웃
   GroupService       그룹 생성·초대·승인·명단
   GroupAccess        그룹 권한 확인 한 곳 (세 서비스가 공유)
-  RoomService        회의실 추가·조회 + requireAccessibleRoom
+  RoomService        회의실 추가·조회·수정·삭제 + requireAccessibleRoom. 예약 저장소와 Clock 을 받는다
   ReservationService RoomService 를 통해서만 회의실에 접근한다
   *Repository / PasswordHasher / TokenGenerator (interface)
 api/
@@ -50,7 +50,7 @@ api/
   LoginMember + LoginMemberArgumentResolver   Bearer 토큰 → Member 주입
   BearerToken                                 헤더 파싱 한 곳
   GlobalExceptionHandler    AppException 하나만 처리
-  ErrorCodeHttpStatus       Map<ErrorCode,HttpStatus> 31종. 누락 시 예외
+  ErrorCodeHttpStatus       Map<ErrorCode,HttpStatus> 32종. 누락 시 예외
   dto/                      날짜는 String + DateTimeFormatter 직접 포맷
 infra/
   Jpa*Repository            (@Repository 는 여기에만)
@@ -72,7 +72,9 @@ config/
 
 **인증과 권한**: MVP의 "인증 없음"(NFR-05)은 폐기됐다. 로그인하면 불투명 토큰을 받아 `Authorization: Bearer` 로 보낸다. Spring Security를 도입하지 않은 이유는 필요한 것이 "헤더의 토큰으로 회원을 찾아 컨트롤러에 넘기기" 하나뿐이라 `HandlerMethodArgumentResolver` 로 충분하기 때문이다. 토큰에 권한을 싣지 않으므로(JWT 아님) 로그아웃과 권한 변경이 즉시 반영된다.
 
-**권한 판정 순서는 고정**이다. 회의실 추가는 `인증 → 그룹 존재 → 그룹 권한 → 입력 검증` 으로 **권한이 입력 검증보다 앞선다** — 남의 그룹에 대고 이름 길이 규칙을 캐낼 수 없어야 한다. 반대로 예약 생성은 `인증 → 날짜·시간 규칙 → 회의실 존재 → 그룹 권한 → 겹침` 으로 시간 규칙이 앞서는데, 이는 MVP의 검증 순서를 그대로 유지하기 위한 선택이다. 근거는 [`requirements/auth-groups.md` §2.1](../../requirements/auth-groups.md).
+**권한 판정 순서는 고정**이다. 회의실 추가는 `인증 → 그룹 존재 → 그룹 권한 → 입력 검증` 으로 **권한이 입력 검증보다 앞선다** — 남의 그룹에 대고 이름 길이 규칙을 캐낼 수 없어야 한다. 회의실 수정(`인증 → 방 존재 → 승인된 그룹원 → 입력 검증`)과 삭제(`인증 → 방 존재 → 그룹장 → 앞으로의 ACTIVE 예약 확인`)도 같은 원칙이라, 외부인은 입력 규칙이나 예약 유무를 알 수 없다. 반대로 예약 생성은 `인증 → 날짜·시간 규칙 → 회의실 존재 → 그룹 권한 → 겹침` 으로 시간 규칙이 앞서는데, 이는 MVP의 검증 순서를 그대로 유지하기 위한 선택이다.
+
+**회의실 삭제는 물리 삭제**다. `Reservation.roomId` 는 FK 없이 id 만 가지므로 방 행을 지워도 예약 행과 roomId 가 남는다(이력 보존). 삭제된 방은 `findById` 가 비어 기존 `requireAccessibleRoom` 경로에서 코드 변경 없이 `ROOM_NOT_FOUND` 가 된다. 이 안전성은 "FK 없음 + H2 IDENTITY 의 id 비재사용" 에 기대므로 운영 DB 를 정할 때 다시 확인해야 한다. 앞으로의 예약 판정은 `Reservation.isOngoingOrUpcomingAt(now)`(종료 > now, 엄격)가 규칙의 원본이고 `ReservationRepository.existsActiveByRoomIdAndEndAtAfter` 가 같은 의미를 저장소에서 구현한다(InMemory·JPA 계약 테스트로 일치 보호). 근거는 [`requirements/auth-groups.md` §2.1](../../requirements/auth-groups.md).
 
 ## 프론트 — 계층
 
@@ -114,7 +116,7 @@ today.ts      new Date() 를 쓰는 유일한 곳
 | 주제 | 설명 |
 |------|------|
 | 구현 추적 | [`status.md`](status.md) — BR/FR별 상태 + 이월 항목 |
-| **테스트 시나리오** | [`test-scenarios.md`](test-scenarios.md) — 658건이 보장하는 동작을 시나리오 단위로 정리 |
+| **테스트 시나리오** | [`test-scenarios.md`](test-scenarios.md) — 796건이 보장하는 동작을 시나리오 단위로 정리 |
 | **디자인 톤 기준** | [`design-tokens.md`](design-tokens.md) — 색·타이포·간격의 근거와 **바꾸면 안 되는 것** |
 | 설계 결정 | `.dev/feat-room-reservation/design.md` — 검증 순서(A-1), 겹침 매칭(B-5), 확정 계약(§9.13·§9.14) |
 | 수용 기준 | `.dev/feat-room-reservation/prd.md` — AC 44건 (리뷰 반영분 AC-36~40 포함) |
