@@ -14,7 +14,7 @@
 
 실행:
 ```bash
-./gradlew test    # 백엔드 407
+./gradlew test    # 백엔드 545
 npm test          # 프론트 251
 ```
 
