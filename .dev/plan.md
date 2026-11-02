@@ -15,10 +15,10 @@
 | W07 | 만료 세션 정리 | reservation | AR-05 후속 (status.md 이월) | W03 | - | 대기 |
 | W08 | 로그인 실패 횟수 제한 · 임시 잠금 | reservation | AR-04 후속 (auth-groups §6) | W03 | - | 대기 |
 | W09 | 그룹 탈퇴 | reservation | GR 후속 (auth-groups §2.2·§6) | W04 | - | 대기 |
-| W10 | 회의실 수정 · 삭제 | reservation | RR 후속 (auth-groups §6) | W05 | feat/room-edit-delete | 진행 |
+| W10 | 회의실 수정 · 삭제 | reservation | RR 후속 (auth-groups §6) | W05 | feat/room-edit-delete | 완료 |
 | W11 | 그룹 전체 회의실 예약 일괄 조회 (N+1 해소) | reservation | FR-02 후속 (status.md 이월) | W05 | - | 대기 |
 | W12 | 지난 시각 슬롯 클릭 차단 | reservation | FR-05 후속 (status.md 이월) | W06 | - | 대기 |
-| W13 | 같은 슬롯 동시 요청 제어 | reservation | mvp §8-1 (NFR-04) | W05 | - | 대기 |
+| W13 | 같은 슬롯 동시 요청 제어 (+ 방 삭제·예약 생성 경합, W10 리뷰 HIGH 수용분) | reservation | mvp §8-1 (NFR-04) | W05 | - | 대기 |
 | W14 | 반복 예약 (매주 같은 요일) | reservation | mvp §8-3 | W05 | - | 대기 |
 
 ## 의존 근거
