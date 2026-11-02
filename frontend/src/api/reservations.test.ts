@@ -1,17 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { RoomDto, ReservationDto, CreateReservationRequest } from '../types';
+import type {
+  CreateReservationRequest,
+  CreateRoomRequest,
+  ReservationDto,
+  RoomDto,
+} from '../types';
 import { reservationApi } from './reservations';
 import { ApiError } from './client';
+import { writeToken } from '../auth/tokenStorage';
 
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockReset();
+  localStorage.clear();
+  writeToken('opaque-token-1');
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 function jsonResponse(status: number, body: unknown) {
@@ -38,15 +47,20 @@ function brokenJsonResponse(status: number) {
   };
 }
 
+const BEARER = expect.objectContaining({
+  headers: expect.objectContaining({ Authorization: 'Bearer opaque-token-1' }),
+});
+
 const ROOMS: RoomDto[] = [
-  { id: 1, name: '대회의실', capacity: 20, location: '3층' },
-  { id: 2, name: '중회의실', capacity: 10, location: '3층' },
+  { id: 1, groupId: 1, name: '대회의실', capacity: 20, location: '3층' },
+  { id: 2, groupId: 1, name: '중회의실', capacity: 10, location: '3층' },
 ];
 
 const RESERVATIONS: ReservationDto[] = [
   {
     id: 1,
     roomId: 1,
+    memberId: 1,
     reserverName: '김본승',
     purpose: '주간 회의',
     startAt: '2026-08-26T09:00:00',
@@ -57,7 +71,6 @@ const RESERVATIONS: ReservationDto[] = [
 
 const CREATE_REQUEST: CreateReservationRequest = {
   roomId: 1,
-  reserverName: '김본승',
   purpose: '주간 회의',
   startAt: '2026-08-26T09:00:00',
   endAt: '2026-08-26T09:30:00',
@@ -66,6 +79,7 @@ const CREATE_REQUEST: CreateReservationRequest = {
 const CREATED_RESERVATION: ReservationDto = {
   id: 10,
   roomId: 1,
+  memberId: 1,
   reserverName: '김본승',
   purpose: '주간 회의',
   startAt: '2026-08-26T09:00:00',
@@ -73,15 +87,40 @@ const CREATED_RESERVATION: ReservationDto = {
   status: 'ACTIVE',
 };
 
+const CREATE_ROOM_REQUEST: CreateRoomRequest = {
+  name: '대회의실',
+  capacity: 20,
+  location: '3층',
+};
+
 describe('reservationApi 성공 경로', () => {
-  it('fetchRooms는 /api/rooms를 호출하고 200 응답의 배열을 그대로 반환한다', async () => {
+  it('fetchRooms(1)은 그룹 문맥의 /api/groups/1/rooms를 Bearer로 호출하고 200 응답의 배열을 그대로 반환한다', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, ROOMS) as unknown as Response);
 
-    const result = await reservationApi.fetchRooms();
+    const result = await reservationApi.fetchRooms(1);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith('/api/rooms');
+    expect(fetchMock).toHaveBeenCalledWith('/api/groups/1/rooms', BEARER);
     expect(result).toEqual(ROOMS);
+  });
+
+  it('createRoom(1, 요청)은 /api/groups/1/rooms에 POST하고 생성된 회의실을 반환한다', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, ROOMS[0]) as unknown as Response);
+
+    const result = await reservationApi.createRoom(1, CREATE_ROOM_REQUEST);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/groups/1/rooms',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer opaque-token-1',
+        }),
+        body: JSON.stringify(CREATE_ROOM_REQUEST),
+      }),
+    );
+    expect(result).toEqual(ROOMS[0]);
   });
 
   it('fetchReservations(1, "2026-08-26")는 쿼리스트링이 포함된 URL을 호출하고 배열을 반환한다', async () => {
@@ -90,7 +129,7 @@ describe('reservationApi 성공 경로', () => {
     const result = await reservationApi.fetchReservations(1, '2026-08-26');
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith('/api/rooms/1/reservations?date=2026-08-26');
+    expect(fetchMock).toHaveBeenCalledWith('/api/rooms/1/reservations?date=2026-08-26', BEARER);
     expect(result).toEqual(RESERVATIONS);
   });
 
@@ -111,19 +150,27 @@ describe('reservationApi 성공 경로', () => {
     expect(result).toEqual(CREATED_RESERVATION);
   });
 
-  it('cancelReservation(5, "김본승")은 .../5/cancel로 POST하고 204 본문 없음에서도 예외 없이 완료된다', async () => {
+  it('createReservation 요청 바디에 reserverName이 들어가지 않는다 — 예약자는 서버가 토큰에서 유도한다', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, CREATED_RESERVATION) as unknown as Response);
+
+    await reservationApi.createReservation(CREATE_REQUEST);
+
+    const [, init] = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(init.body)).not.toHaveProperty('reserverName');
+  });
+
+  it('cancelReservation(5)는 .../5/cancel로 바디 없이 POST하고 204 본문 없음에서도 예외 없이 완료된다', async () => {
     fetchMock.mockResolvedValue(noContentResponse() as unknown as Response);
 
-    await expect(reservationApi.cancelReservation(5, '김본승')).resolves.toBeUndefined();
+    await expect(reservationApi.cancelReservation(5)).resolves.toBeUndefined();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/reservations/5/cancel',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ reserverName: '김본승' }),
-      }),
+      expect.objectContaining({ method: 'POST' }),
     );
+    const [, init] = fetchMock.mock.calls[0] as [string, { body?: string }];
+    expect(init.body).toBeUndefined();
   });
 });
 
@@ -155,13 +202,45 @@ describe('reservationApi 오류 경로', () => {
     });
   });
 
+  it('403 + NOT_GROUP_MEMBER 응답이면 fetchRooms가 해당 code로 reject된다', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(403, { code: 'NOT_GROUP_MEMBER' }) as unknown as Response,
+    );
+
+    await expect(reservationApi.fetchRooms(9)).rejects.toMatchObject({
+      code: 'NOT_GROUP_MEMBER',
+      status: 403,
+    });
+  });
+
+  it('400 + INVALID_ROOM_CAPACITY 응답이면 createRoom이 해당 code로 reject된다', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, { code: 'INVALID_ROOM_CAPACITY' }) as unknown as Response,
+    );
+
+    await expect(
+      reservationApi.createRoom(1, { name: '대회의실', capacity: 0, location: '3층' }),
+    ).rejects.toMatchObject({ code: 'INVALID_ROOM_CAPACITY', status: 400 });
+  });
+
   it('500 응답 본문을 JSON으로 읽지 못하면 code가 UNKNOWN, status가 500인 ApiError로 reject된다', async () => {
     fetchMock.mockResolvedValue(brokenJsonResponse(500) as unknown as Response);
 
-    await expect(reservationApi.fetchRooms()).rejects.toBeInstanceOf(ApiError);
-    await expect(reservationApi.fetchRooms()).rejects.toMatchObject({
+    await expect(reservationApi.fetchRooms(1)).rejects.toBeInstanceOf(ApiError);
+    await expect(reservationApi.fetchRooms(1)).rejects.toMatchObject({
       code: 'UNKNOWN',
       status: 500,
+    });
+  });
+
+  it('401 응답이면 어느 호출이든 UNAUTHENTICATED로 reject된다 — 만료 토큰은 authorizedFetch가 가로챈다', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(401, { code: 'UNAUTHENTICATED' }) as unknown as Response,
+    );
+
+    await expect(reservationApi.fetchRooms(1)).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+      status: 401,
     });
   });
 });

@@ -1,19 +1,30 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { RoomDto, ReservationDto } from '../types';
+import type { GroupDto, MemberDto, ReservationDto, RoomDto } from '../types';
 import type { ReservationApi } from '../api/types';
 import { ApiError } from '../api/client';
 import ReservationPage from './ReservationPage';
 
-const ROOMS: RoomDto[] = [
-  { id: 1, name: '대회의실', capacity: 20, location: '3층' },
-  { id: 2, name: '중회의실', capacity: 10, location: '3층' },
+const ME: MemberDto = { id: 1, email: 'owner@sqisoft.com', name: '김본승' };
+
+const GROUPS: GroupDto[] = [
+  { id: 1, name: 'SQI 개발팀', ownerId: 1, role: 'OWNER', status: 'APPROVED' },
+  { id: 2, name: '디자인팀', ownerId: 9, role: 'MEMBER', status: 'APPROVED' },
 ];
 
-const EXISTING: ReservationDto = {
+const ROOMS: RoomDto[] = [
+  { id: 1, groupId: 1, name: '대회의실', capacity: 20, location: '3층' },
+  { id: 2, groupId: 1, name: '중회의실', capacity: 10, location: '3층' },
+];
+
+const NEW_ROOM: RoomDto = { id: 3, groupId: 1, name: '소회의실1', capacity: 6, location: '5층' };
+
+/** 내가 잡은 예약 — 취소할 수 있어야 한다. */
+const MINE: ReservationDto = {
   id: 11,
   roomId: 1,
+  memberId: 1,
   reserverName: '김본승',
   purpose: '주간 회의',
   startAt: '2026-08-26T09:00:00',
@@ -21,10 +32,23 @@ const EXISTING: ReservationDto = {
   status: 'ACTIVE',
 };
 
+/** 남이 잡은 예약 — 취소를 제공하면 안 된다. */
+const SOMEONE_ELSES: ReservationDto = {
+  id: 22,
+  roomId: 1,
+  memberId: 2,
+  reserverName: '박그룹',
+  purpose: '설계 리뷰',
+  startAt: '2026-08-26T13:00:00',
+  endAt: '2026-08-26T14:00:00',
+  status: 'ACTIVE',
+};
+
 const NEW_RESERVATION: ReservationDto = {
   id: 33,
   roomId: 1,
-  reserverName: '이수민',
+  memberId: 1,
+  reserverName: '김본승',
   purpose: '기획 회의',
   startAt: '2026-08-26T09:30:00',
   endAt: '2026-08-26T10:00:00',
@@ -34,26 +58,42 @@ const NEW_RESERVATION: ReservationDto = {
 function createFakeApi() {
   return {
     fetchRooms: vi.fn(),
+    createRoom: vi.fn(),
     fetchReservations: vi.fn(),
     createReservation: vi.fn(),
     cancelReservation: vi.fn(),
   };
 }
 
-function renderPage(fakeApi: ReturnType<typeof createFakeApi>, initialDate: string = '2026-08-26') {
-  return render(<ReservationPage initialDate={initialDate} api={fakeApi as unknown as ReservationApi} />);
+function renderPage(
+  fakeApi: ReturnType<typeof createFakeApi>,
+  overrides: { initialDate?: string; onSelectGroup?: (groupId: number) => void } = {},
+) {
+  const onSelectGroup = overrides.onSelectGroup ?? vi.fn();
+  render(
+    <ReservationPage
+      initialDate={overrides.initialDate ?? '2026-08-26'}
+      groupId={1}
+      groups={GROUPS}
+      member={ME}
+      onSelectGroup={onSelectGroup}
+      api={fakeApi as unknown as ReservationApi}
+    />,
+  );
+  return { onSelectGroup };
 }
 
 describe('ReservationPage', () => {
-  it('마운트 후 회의실 이름과 기존 예약자명이 그리드에 표시된다 (초기 로드)', async () => {
+  it('마운트 후 선택된 그룹의 회의실과 기존 예약자명이 그리드에 표시된다 (초기 로드)', async () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
-    api.fetchReservations.mockImplementation(async (roomId: number) => (roomId === 1 ? [EXISTING] : []));
+    api.fetchReservations.mockImplementation(async (roomId: number) => (roomId === 1 ? [MINE] : []));
 
     renderPage(api);
 
     await screen.findByText('대회의실');
     expect(screen.getByText('중회의실')).toBeInTheDocument();
+    expect(api.fetchRooms).toHaveBeenCalledWith(1);
     await waitFor(() => {
       expect(within(screen.getByTestId('slot-1-09:00')).getByText('김본승')).toBeInTheDocument();
     });
@@ -105,7 +145,6 @@ describe('ReservationPage', () => {
     const user = userEvent.setup();
     await user.click(screen.getByTestId('slot-1-09:30'));
     const dialog = await screen.findByRole('dialog', { name: '예약 폼' });
-    await user.type(within(dialog).getByLabelText('예약자명'), '김본승');
     await user.click(within(dialog).getByRole('button', { name: '확인' }));
 
     const alert = await screen.findByRole('alert');
@@ -127,22 +166,28 @@ describe('ReservationPage', () => {
     const user = userEvent.setup();
     await user.click(screen.getByTestId('slot-1-09:30'));
     const dialog = await screen.findByRole('dialog', { name: '예약 폼' });
-    await user.type(within(dialog).getByLabelText('예약자명'), '이수민');
+    await user.type(within(dialog).getByLabelText('회의 목적'), '기획 회의');
     await user.click(within(dialog).getByRole('button', { name: '확인' }));
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: '예약 폼' })).not.toBeInTheDocument();
     });
+    expect(api.createReservation).toHaveBeenCalledWith({
+      roomId: 1,
+      purpose: '기획 회의',
+      startAt: '2026-08-26T09:30:00',
+      endAt: '2026-08-26T10:00:00',
+    });
     await waitFor(() => {
-      expect(within(screen.getByTestId('slot-1-09:30')).getByText('이수민')).toBeInTheDocument();
+      expect(within(screen.getByTestId('slot-1-09:30')).getByText('김본승')).toBeInTheDocument();
     });
   });
 
-  it('예약된 슬롯을 취소하면 서버 재조회 후 슬롯에서 예약자명이 사라지고 대화상자도 닫힌다 (AC-35)', async () => {
+  it('내 예약 슬롯을 취소하면 예약 id만 보내고, 재조회 후 슬롯이 비며 대화상자도 닫힌다 (AC-35)', async () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
     api.fetchReservations
-      .mockResolvedValueOnce([EXISTING]) // room 1, 최초 로드
+      .mockResolvedValueOnce([MINE]) // room 1, 최초 로드
       .mockResolvedValueOnce([]) // room 2, 최초 로드
       .mockResolvedValueOnce([]) // room 1, 취소 성공 후 재조회
       .mockResolvedValueOnce([]); // room 2, 취소 성공 후 재조회
@@ -159,7 +204,7 @@ describe('ReservationPage', () => {
     await user.click(within(dialog).getByRole('button', { name: '확인' }));
 
     await waitFor(() => {
-      expect(api.cancelReservation).toHaveBeenCalledWith(11, '김본승');
+      expect(api.cancelReservation).toHaveBeenCalledWith(11);
     });
     await waitFor(() => {
       expect(within(screen.getByTestId('slot-1-09:00')).queryByText('김본승')).not.toBeInTheDocument();
@@ -169,10 +214,31 @@ describe('ReservationPage', () => {
     });
   });
 
+  it('남의 예약 슬롯을 누르면 예약자만 보여 주고 취소는 제공하지 않는다', async () => {
+    const api = createFakeApi();
+    api.fetchRooms.mockResolvedValue(ROOMS);
+    api.fetchReservations.mockImplementation(async (roomId: number) =>
+      roomId === 1 ? [SOMEONE_ELSES] : [],
+    );
+    renderPage(api);
+    await screen.findByText('대회의실');
+    await waitFor(() => {
+      expect(within(screen.getByTestId('slot-1-13:00')).getByText('박그룹')).toBeInTheDocument();
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('slot-1-13:00'));
+
+    const dialog = await screen.findByRole('dialog', { name: '예약 정보' });
+    expect(within(dialog).getByText('박그룹')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: '확인' })).not.toBeInTheDocument();
+    expect(api.cancelReservation).not.toHaveBeenCalled();
+  });
+
   it('취소 확인 대화상자에서 닫기를 누르면 취소 요청이 전송되지 않고 대화상자만 닫힌다', async () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
-    api.fetchReservations.mockImplementation(async (roomId: number) => (roomId === 1 ? [EXISTING] : []));
+    api.fetchReservations.mockImplementation(async (roomId: number) => (roomId === 1 ? [MINE] : []));
     renderPage(api);
     await screen.findByText('대회의실');
     await waitFor(() => {
@@ -191,7 +257,7 @@ describe('ReservationPage', () => {
   it('초기 로드가 정상 완료된 상태에서는 오류 배너가 표시되지 않는다', async () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
-    api.fetchReservations.mockImplementation(async (roomId: number) => (roomId === 1 ? [EXISTING] : []));
+    api.fetchReservations.mockImplementation(async (roomId: number) => (roomId === 1 ? [MINE] : []));
 
     renderPage(api);
 
@@ -203,7 +269,7 @@ describe('ReservationPage', () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
     api.fetchReservations.mockResolvedValue([]);
-    renderPage(api, '2026-08-26');
+    renderPage(api, { initialDate: '2026-08-26' });
     await screen.findByText('대회의실');
 
     const user = userEvent.setup();
@@ -220,7 +286,7 @@ describe('ReservationPage', () => {
     const api = createFakeApi();
     api.fetchRooms.mockResolvedValue(ROOMS);
     api.fetchReservations.mockResolvedValue([]);
-    renderPage(api, '2026-08-26');
+    renderPage(api, { initialDate: '2026-08-26' });
     await screen.findByText('대회의실');
 
     const reservationCallsBeforeTyping = api.fetchReservations.mock.calls.length;
@@ -239,5 +305,74 @@ describe('ReservationPage', () => {
     expect(api.fetchRooms.mock.calls.length - roomCallsBeforeTyping).toBe(1);
     expect(api.fetchReservations).not.toHaveBeenCalledWith(expect.anything(), '2');
     expect(api.fetchReservations).not.toHaveBeenCalledWith(expect.anything(), '2026');
+  });
+});
+
+describe('ReservationPage 그룹 문맥', () => {
+  it('상단에서 속한 그룹을 고를 수 있고, 고르면 선택이 위로 전달된다', async () => {
+    const api = createFakeApi();
+    api.fetchRooms.mockResolvedValue(ROOMS);
+    api.fetchReservations.mockResolvedValue([]);
+    const { onSelectGroup } = renderPage(api);
+    await screen.findByText('대회의실');
+
+    const selector = screen.getByLabelText('그룹 선택');
+    expect(selector).toHaveValue('1');
+
+    const user = userEvent.setup();
+    await user.selectOptions(selector, '2');
+
+    expect(onSelectGroup).toHaveBeenCalledWith(2);
+  });
+
+  it('회의실 추가로 만든 회의실이 격자에 나타난다', async () => {
+    const api = createFakeApi();
+    api.fetchRooms.mockResolvedValueOnce(ROOMS).mockResolvedValue([...ROOMS, NEW_ROOM]);
+    api.fetchReservations.mockResolvedValue([]);
+    api.createRoom.mockResolvedValue(NEW_ROOM);
+    renderPage(api);
+    await screen.findByText('대회의실');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '회의실 추가' }));
+    const dialog = await screen.findByRole('dialog', { name: '회의실 추가' });
+    await user.type(within(dialog).getByLabelText('회의실 이름'), '소회의실1');
+    await user.clear(within(dialog).getByLabelText('수용 인원'));
+    await user.type(within(dialog).getByLabelText('수용 인원'), '6');
+    await user.type(within(dialog).getByLabelText('위치'), '5층');
+    await user.click(within(dialog).getByRole('button', { name: '확인' }));
+
+    await waitFor(() => {
+      expect(api.createRoom).toHaveBeenCalledWith(1, {
+        name: '소회의실1',
+        capacity: 6,
+        location: '5층',
+      });
+    });
+    expect(await screen.findByText('소회의실1')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '회의실 추가' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('회의실 추가가 거절되면 패널이 열린 채 사유를 알려 준다', async () => {
+    const api = createFakeApi();
+    api.fetchRooms.mockResolvedValue(ROOMS);
+    api.fetchReservations.mockResolvedValue([]);
+    api.createRoom.mockRejectedValue(new ApiError('INVALID_ROOM_CAPACITY', 400));
+    renderPage(api);
+    await screen.findByText('대회의실');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '회의실 추가' }));
+    const dialog = await screen.findByRole('dialog', { name: '회의실 추가' });
+    await user.type(within(dialog).getByLabelText('회의실 이름'), '소회의실1');
+    await user.type(within(dialog).getByLabelText('위치'), '5층');
+    await user.click(within(dialog).getByRole('button', { name: '확인' }));
+
+    expect(
+      await within(dialog).findByText('수용 인원은 1명 이상 999명 이하여야 합니다.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '회의실 추가' })).toBeInTheDocument();
   });
 });

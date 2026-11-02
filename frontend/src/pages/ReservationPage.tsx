@@ -1,25 +1,39 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CreateReservationRequest, ReservationDto, SlotTime } from '../types';
+import type {
+  CreateReservationRequest,
+  CreateRoomRequest,
+  GroupDto,
+  MemberDto,
+  ReservationDto,
+  SlotTime,
+} from '../types';
 import type { ReservationApi } from '../api/types';
 import { reservationApi } from '../api/reservations';
+import { ApiError } from '../api/client';
 import { useReservationBoard } from '../hooks/useReservationBoard';
 import { today } from '../today';
 import DateSelector, { DATE_INPUT_ID } from '../components/DateSelector';
 import TimeSlotGrid from '../components/TimeSlotGrid';
 import ReservationFormDialog from '../components/ReservationFormDialog';
 import CancelConfirmDialog from '../components/CancelConfirmDialog';
+import RoomFormDialog from '../components/RoomFormDialog';
 import ErrorBanner from '../components/ErrorBanner';
 
 type FormTarget = { roomId: number; slot: SlotTime };
 
 type ReservationPageProps = {
   initialDate: string;
+  groupId: number | null;
+  groups: GroupDto[];
+  member: MemberDto;
+  onSelectGroup: (groupId: number) => void;
   api?: ReservationApi;
 };
 
 const BOOKING_WINDOW_DAYS = 14;
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const COMPLETE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const GROUP_SELECT_ID = 'reservation-group';
 const SEOUL_TIME = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'Asia/Seoul',
   hour: '2-digit',
@@ -44,7 +58,14 @@ function formatHeading(date: string): string {
   return `${year}년 ${month}월 ${day}일 ${weekday}요일`;
 }
 
-export default function ReservationPage({ initialDate, api = reservationApi }: ReservationPageProps) {
+export default function ReservationPage({
+  initialDate,
+  groupId,
+  groups,
+  member,
+  onSelectGroup,
+  api = reservationApi,
+}: ReservationPageProps) {
   const [pending, setPending] = useState(0);
   const [firstLoadDone, setFirstLoadDone] = useState(false);
   const lastMutation = useRef<'ok' | 'fail'>('ok');
@@ -73,17 +94,19 @@ export default function ReservationPage({ initialDate, api = reservationApi }: R
       }
     };
     return {
-      fetchRooms: () => count(() => api.fetchRooms()),
+      fetchRooms: (id) => count(() => api.fetchRooms(id)),
+      createRoom: (id, request) => mutate(() => api.createRoom(id, request)),
       fetchReservations: (roomId, date) => count(() => api.fetchReservations(roomId, date)),
       createReservation: (request) => mutate(() => api.createReservation(request)),
-      cancelReservation: (id, reserverName) =>
-        mutate(() => api.cancelReservation(id, reserverName)),
+      cancelReservation: (id) => mutate(() => api.cancelReservation(id)),
     };
   }, [api]);
 
-  const board = useReservationBoard({ initialDate, api: trackedApi });
+  const board = useReservationBoard({ initialDate, groupId, api: trackedApi });
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null);
   const [cancelTarget, setCancelTarget] = useState<ReservationDto | null>(null);
+  const [roomFormOpen, setRoomFormOpen] = useState(false);
+  const [roomErrorCode, setRoomErrorCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (pending > 0) {
@@ -99,6 +122,10 @@ export default function ReservationPage({ initialDate, api = reservationApi }: R
   const maxDate = useMemo(() => shiftDate(minDate, BOOKING_WINDOW_DAYS), [minDate]);
   const now = useMemo(() => new Date(), [board.date, pending]);
 
+  const selectedGroup = groups.find((group) => group.id === groupId) ?? null;
+  // 남의 예약은 서버가 어차피 NOT_RESERVER 로 막는다. 누를 수 있는 취소를 내주지 않는다.
+  const canCancel = cancelTarget !== null && cancelTarget.memberId === member.id;
+
   const handleFormSubmit = async (request: CreateReservationRequest) => {
     await board.createReservation(request);
     // 실패했으면 폼을 그대로 둔다 — 입력을 날리지 않는 것이 재입력보다 싸다.
@@ -111,6 +138,21 @@ export default function ReservationPage({ initialDate, api = reservationApi }: R
     await board.cancelReservation(reservation);
     if (lastMutation.current === 'ok') {
       setCancelTarget(null);
+    }
+  };
+
+  const handleRoomSubmit = async (request: CreateRoomRequest) => {
+    if (groupId === null) {
+      return;
+    }
+    try {
+      await trackedApi.createRoom(groupId, request);
+      setRoomErrorCode(null);
+      setRoomFormOpen(false);
+      await board.reload();
+    } catch (e) {
+      // 회의실 폼의 거절은 그 패널 안에서 읽힌다 — 페이지 배너는 오버레이 아래라 닿지 않는다.
+      setRoomErrorCode(e instanceof ApiError ? e.code : 'UNKNOWN');
     }
   };
 
@@ -129,13 +171,19 @@ export default function ReservationPage({ initialDate, api = reservationApi }: R
     setCancelTarget(reservation);
   };
 
-  const dialogOpen = formTarget !== null || cancelTarget !== null;
+  const openRoomForm = () => {
+    board.clearError();
+    setRoomErrorCode(null);
+    setRoomFormOpen(true);
+  };
+
+  const dialogOpen = formTarget !== null || cancelTarget !== null || roomFormOpen;
 
   const boardMessage =
     board.errorCode !== null
       ? '예약 현황을 불러오지 못했습니다. 위의 다시 시도를 눌러 주세요.'
       : firstLoadDone
-        ? '등록된 회의실이 없습니다. 관리자에게 문의해 주세요.'
+        ? '등록된 회의실이 없습니다. 위의 회의실 추가로 첫 회의실을 만들어 주세요.'
         : '회의실 현황을 불러오는 중입니다.';
 
   const cancelRoomName = board.rooms.find((room) => room.id === cancelTarget?.roomId)?.name;
@@ -154,6 +202,39 @@ export default function ReservationPage({ initialDate, api = reservationApi }: R
             09:00–18:00 · 30분 단위 · 한 번에 최소 30분, 최대 4시간 · 오늘부터 14일 이내
           </p>
         </header>
+
+        <div className="toolbar toolbar--context">
+          <div className="datebar">
+            <label className="datebar__label" htmlFor={GROUP_SELECT_ID}>
+              그룹 선택
+            </label>
+            <div className="datebar__controls">
+              <select
+                id={GROUP_SELECT_ID}
+                className="field__select"
+                aria-label="그룹 선택"
+                value={groupId ?? ''}
+                onChange={(e) => onSelectGroup(Number(e.target.value))}
+              >
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn"
+                onClick={openRoomForm}
+                disabled={groupId === null}
+              >
+                회의실 추가
+              </button>
+            </div>
+          </div>
+
+          <span className="stamp">{member.name}님으로 예약합니다</span>
+        </div>
 
         <div className="toolbar">
           <div className="datebar">
@@ -260,6 +341,7 @@ export default function ReservationPage({ initialDate, api = reservationApi }: R
           roomId={formTarget.roomId}
           date={board.date}
           initialStartTime={formTarget.slot}
+          reserverName={member.name}
           errorCode={board.errorCode}
           onSubmit={handleFormSubmit}
           onClose={() => setFormTarget(null)}
@@ -269,10 +351,20 @@ export default function ReservationPage({ initialDate, api = reservationApi }: R
         open={cancelTarget !== null}
         reservation={cancelTarget}
         roomName={cancelRoomName}
+        canCancel={canCancel}
         errorCode={board.errorCode}
         onConfirm={handleCancelConfirm}
         onClose={() => setCancelTarget(null)}
       />
+      {roomFormOpen && selectedGroup !== null && (
+        <RoomFormDialog
+          open
+          groupName={selectedGroup.name}
+          errorCode={roomErrorCode}
+          onSubmit={handleRoomSubmit}
+          onClose={() => setRoomFormOpen(false)}
+        />
+      )}
     </div>
   );
 }

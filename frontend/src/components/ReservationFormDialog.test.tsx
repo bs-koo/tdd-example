@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { SlotTime, CreateReservationRequest } from '../types';
 import ReservationFormDialog from './ReservationFormDialog';
@@ -9,6 +9,7 @@ type RenderOverrides = {
   roomId?: number;
   date?: string;
   initialStartTime?: SlotTime;
+  reserverName?: string;
   onSubmit?: (request: CreateReservationRequest) => void;
   onClose?: () => void;
 };
@@ -22,6 +23,7 @@ function renderDialog(overrides: RenderOverrides = {}) {
       roomId={overrides.roomId ?? 1}
       date={overrides.date ?? '2026-08-26'}
       initialStartTime={overrides.initialStartTime ?? '09:30'}
+      reserverName={overrides.reserverName ?? '김본승'}
       onSubmit={onSubmit}
       onClose={onClose}
     />,
@@ -66,11 +68,10 @@ describe('ReservationFormDialog', () => {
     expect(screen.getByLabelText('종료 시각')).toHaveValue('10:00');
   });
 
-  it('예약자명·목적을 입력하고 종료 시각을 변경한 뒤 확인을 누르면 onSubmit이 정확한 요청 객체로 1회 호출된다', async () => {
+  it('목적을 입력하고 종료 시각을 변경한 뒤 확인을 누르면 onSubmit이 정확한 요청 객체로 1회 호출된다', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderDialog({ roomId: 1, date: '2026-08-26', initialStartTime: '09:30' });
 
-    await user.type(screen.getByLabelText('예약자명'), '김본승');
     await user.type(screen.getByLabelText('회의 목적'), '주간 회의');
 
     const endTimeInput = screen.getByLabelText('종료 시각');
@@ -82,24 +83,40 @@ describe('ReservationFormDialog', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith({
       roomId: 1,
-      reserverName: '김본승',
       purpose: '주간 회의',
       startAt: '2026-08-26T09:30:00',
       endAt: '2026-08-26T11:00:00',
     });
   });
 
+  it('예약자명은 더 이상 입력받지 않는다 — 예약자는 로그인한 사람으로 정해진다', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderDialog({ reserverName: '김본승' });
+
+    expect(screen.queryByLabelText('예약자명')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '확인' }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(onSubmit).mock.calls[0][0]).not.toHaveProperty('reserverName');
+  });
+
+  it('누구 이름으로 잡히는지 패널에서 확인할 수 있다', () => {
+    renderDialog({ reserverName: '김본승' });
+
+    const dialog = screen.getByRole('dialog', { name: '예약 폼' });
+    expect(within(dialog).getByText('김본승')).toBeInTheDocument();
+  });
+
   it('회의 목적을 비운 채 제출해도 onSubmit이 호출되고 purpose는 빈 문자열이다', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderDialog({ roomId: 1, date: '2026-08-26', initialStartTime: '09:30' });
 
-    await user.type(screen.getByLabelText('예약자명'), '김본승');
     await user.click(screen.getByRole('button', { name: '확인' }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith({
       roomId: 1,
-      reserverName: '김본승',
       purpose: '',
       startAt: '2026-08-26T09:30:00',
       endAt: '2026-08-26T10:00:00',
