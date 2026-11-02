@@ -29,22 +29,37 @@ Gradle 멀티프로젝트(`include(":backend")`) + npm workspaces(`"workspaces":
 ```
 domain/          Spring 무의존. new 로 만들어 즉시 단위 테스트 가능
   TimeSlot            반개구간 [start, end) 겹침 판정
-  Reservation         cancel(name) 이 스스로 규칙을 지킴
-  Room
-  ReservationPolicy   BR-02~06 검증. Clock 주입
-  ReservationErrorCode / ReservationException   오류 코드 13종
+  Reservation         cancel(memberId) 가 스스로 규칙을 지킴
+  Room                create() 가 이름·인원·위치를 검증. groupId 보유
+  ReservationPolicy   BR-02~06 + 목적 길이 검증. Clock 주입
+  Member / MemberPolicy / Session          인증 도메인
+  Group / GroupMembership / GroupRole / MembershipStatus
+  ErrorCode (interface)                    오류 코드의 공통 계약
+  AppException                             코드를 실어 나르는 예외의 뿌리
+  ReservationErrorCode(15) / AuthErrorCode(7) / GroupErrorCode(9)   총 31종
 application/     포트 인터페이스에만 의존
-  ReservationService / RoomService
-  ReservationRepository / RoomRepository (interface)
+  AuthService        가입·로그인·인증·로그아웃
+  GroupService       그룹 생성·초대·승인·명단
+  GroupAccess        그룹 권한 확인 한 곳 (세 서비스가 공유)
+  RoomService        회의실 추가·조회 + requireAccessibleRoom
+  ReservationService RoomService 를 통해서만 회의실에 접근한다
+  *Repository / PasswordHasher / TokenGenerator (interface)
 api/
+  AuthController / GroupController / InvitationController
   ReservationController / RoomController
-  GlobalExceptionHandler    ReservationException 하나만 처리
-  ErrorCodeHttpStatus       EnumMap 13종. 누락 시 예외
+  LoginMember + LoginMemberArgumentResolver   Bearer 토큰 → Member 주입
+  BearerToken                                 헤더 파싱 한 곳
+  GlobalExceptionHandler    AppException 하나만 처리
+  ErrorCodeHttpStatus       Map<ErrorCode,HttpStatus> 31종. 누락 시 예외
   dto/                      날짜는 String + DateTimeFormatter 직접 포맷
 infra/
-  JpaReservationRepository / JpaRoomRepository   (@Repository 는 여기에만)
+  Jpa*Repository            (@Repository 는 여기에만)
+  Pbkdf2PasswordHasher      PBKDF2-HMAC-SHA256, 별도 의존성 없이 JDK 암호 API만
+  SecureRandomTokenGenerator
 config/
-  ClockConfig / DomainConfig                     빈 등록 전담
+  ClockConfig / DomainConfig                  빈 등록 전담
+  WebConfig                                   ArgumentResolver 등록
+  DemoDataInitializer                         @Profile("!test") 데모 데이터
 ```
 
 `TimeSlot.overlaps()` 와 `ReservationPolicy` 가 이 구조의 핵심이다. Spring도 DB도 모르는 순수 객체라 RGR 사이클이 가장 빠르게 도는 지점이다.
@@ -53,7 +68,11 @@ config/
 
 **Jackson 회피**: 응답 DTO의 날짜·상태를 전부 `String` 으로 두고 `DateTimeFormatter` 로 직접 포맷한다. Jackson 3 환경이라 `com.fasterxml` 경로가 없고, 기본 직렬화는 초가 0일 때 생략해버린다.
 
-저장소는 H2 인메모리(NFR-01)이며 재기동 시 `data.sql` 시드로 초기화된다. 인증은 없고(NFR-05) 예약자명 문자열로만 식별한다.
+저장소는 H2 인메모리(NFR-01)이며 재기동 시 비워진다. 로그인할 계정조차 없으면 실행이 불가능하므로 `DemoDataInitializer` 가 데모 계정·그룹·회의실을 심는다. `data.sql` 을 쓰지 않는 이유는 **비밀번호 해시를 SQL에 하드코딩하지 않기 위해서**다 — 서비스를 거쳐 실제 해시 경로로 만든다. 테스트 프로파일에서는 각 테스트가 자기 데이터를 만들므로 실행하지 않는다.
+
+**인증과 권한**: MVP의 "인증 없음"(NFR-05)은 폐기됐다. 로그인하면 불투명 토큰을 받아 `Authorization: Bearer` 로 보낸다. Spring Security를 도입하지 않은 이유는 필요한 것이 "헤더의 토큰으로 회원을 찾아 컨트롤러에 넘기기" 하나뿐이라 `HandlerMethodArgumentResolver` 로 충분하기 때문이다. 토큰에 권한을 싣지 않으므로(JWT 아님) 로그아웃과 권한 변경이 즉시 반영된다.
+
+**권한 판정 순서는 고정**이다. 회의실 추가는 `인증 → 그룹 존재 → 그룹 권한 → 입력 검증` 으로 **권한이 입력 검증보다 앞선다** — 남의 그룹에 대고 이름 길이 규칙을 캐낼 수 없어야 한다. 반대로 예약 생성은 `인증 → 날짜·시간 규칙 → 회의실 존재 → 그룹 권한 → 겹침` 으로 시간 규칙이 앞서는데, 이는 MVP의 검증 순서를 그대로 유지하기 위한 선택이다. 근거는 [`requirements/auth-groups.md` §2.1](../../requirements/auth-groups.md).
 
 ## 프론트 — 계층
 
@@ -61,15 +80,23 @@ config/
 domain/       순수 함수. Date 객체 미사용 (문자열·정수 분 산술)
   timeSlots / reservationLookup / errorMessages
 api/          fetch 래퍼. 상대 경로만 사용 (dev proxy 가 백엔드로 넘긴다)
-  client(ApiError) / reservations / types(ReservationApi)
+  client(ApiError) / reservations / auth / groups / types(ReservationApi·AuthApi·GroupApi)
+auth/
+  tokenStorage           토큰 보관 한 곳
 hooks/
   useReservationBoard    오류를 errorCode 로 흡수하고 reject 하지 않는다
+  useAuth                loading / anonymous / 로그인 상태. 가입·로그인·로그아웃
+  useGroups              그룹 목록·선택·초대·수락/거절·회의실 추가
 components/
   TimeSlotGrid / ReservationFormDialog / CancelConfirmDialog / ErrorBanner / DateSelector
+  RoomFormDialog         그룹에 회의실 추가
   errorCopy              오류 코드 → 다음 행동 문구 (errorMessages 를 건드리지 않는다)
   useDialogFocus         포커스 트랩 · 초기 포커스 · Escape · 초점 복원
 pages/
-  ReservationPage        api 를 prop 으로 주입받는다 (테스트 격리 seam)
+  ReservationPage        api 를 prop 으로 주입받는다 (테스트 격리 seam). groupId·groups·member 도 받는다
+  LoginPage / GroupsPage
+App.tsx                  로그인 게이트 + (예약|그룹) 탭. 회원이 바뀌면 key 로 쉘을 갈아 끼운다
+                         authApi·groupApi·reservationApi 를 prop 으로 주입받는다
 styles/
   tokens.css             디자인 토큰 (색·타이포·간격·라운드) — 근거는 design-tokens.md
   app.css                리셋·레이아웃·컴포넌트·반응형. 리터럴 hex 0건
@@ -87,8 +114,9 @@ today.ts      new Date() 를 쓰는 유일한 곳
 | 주제 | 설명 |
 |------|------|
 | 구현 추적 | [`status.md`](status.md) — BR/FR별 상태 + 이월 항목 |
-| **테스트 시나리오** | [`test-scenarios.md`](test-scenarios.md) — 275건이 보장하는 동작을 시나리오 단위로 정리 |
+| **테스트 시나리오** | [`test-scenarios.md`](test-scenarios.md) — 658건이 보장하는 동작을 시나리오 단위로 정리 |
 | **디자인 톤 기준** | [`design-tokens.md`](design-tokens.md) — 색·타이포·간격의 근거와 **바꾸면 안 되는 것** |
 | 설계 결정 | `.dev/feat-room-reservation/design.md` — 검증 순서(A-1), 겹침 매칭(B-5), 확정 계약(§9.13·§9.14) |
 | 수용 기준 | `.dev/feat-room-reservation/prd.md` — AC 44건 (리뷰 반영분 AC-36~40 포함) |
 | 원 요구사항 | [`requirements/mvp.md`](../../requirements/mvp.md) |
+| **로그인·그룹 요구사항** | [`requirements/auth-groups.md`](../../requirements/auth-groups.md) — MVP를 확장한다. BR-07·NFR-05 변경분 포함 |

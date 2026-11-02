@@ -8,15 +8,17 @@
 
 | 구분 | 건수 |
 |------|------|
-| 백엔드 | **179** |
-| 프론트 | **108** |
-| **합계** | **287** |
+| 백엔드 | **407** |
+| 프론트 | **251** |
+| **합계** | **658** |
 
 실행:
 ```bash
-./gradlew test    # 백엔드 179
-npm test          # 프론트 108
+./gradlew test    # 백엔드 407
+npm test          # 프론트 251
 ```
+
+> 📌 **개정 (2026-11-02)**: 아래 §1~§9 는 MVP(287건) 시점의 시나리오이며, 로그인·그룹(Phase 8)에서 일부가 바뀌었다 — 취소 권한은 *예약자명* 이 아니라 **memberId** 로 판정하고(§4.1), 오류 코드는 13종이 아니라 **31종**이며(§6), `GET /api/rooms` 는 폐기됐다. Phase 8 에서 추가·변경된 시나리오는 맨 아래 **§10** 에 모았다. §1~§9 의 해당 문장을 지금 고치지 않은 이유는 MVP 시점의 판정 근거를 그대로 남기기 위해서다.
 
 > ⚠️ 두 명령을 **동시에 돌리지 마십시오.** Gradle 데몬과 vitest 워커가 자원 경합을 일으켜 워커 기동 타임아웃이 발생한 사례가 있습니다. `./gradlew --stop` 후 `npm test` 를 권합니다.
 
@@ -445,6 +447,39 @@ jsonPath("$.code").doesNotExist()
 | 설계 C-7 핸들러 누락 | AC 43/43 | 실서버에 깨진 JSON 6종 |
 | 그리드 키보드 조작 불가 | 컴포넌트 테스트 통과 | 코드 리뷰 (`data-testid` 가 비시맨틱 구조를 통과시킴) |
 | 날짜 입력 재조회 폭주 | 통합 테스트 통과 | 코드 리뷰 (`toHaveBeenCalledWith` 는 횟수를 안 봄) |
+
+# 10. 로그인 · 그룹 · 그룹 전용 회의실 (Phase 8)
+
+규칙 원문은 [`requirements/auth-groups.md`](../../requirements/auth-groups.md) §2. 건수는 2026-11-02 실측.
+
+## 10.1 백엔드
+
+| 보장하는 동작 | 규칙 | 검증 위치 (건수) |
+|---------------|------|------------------|
+| 이메일 정규화 · 비밀번호 8~64자 · 이름 길이 | AR-01, 02 | `MemberTest`(8) · `MemberPolicyTest`(18) |
+| 비밀번호를 평문 저장하지 않고 솔트가 계정마다 다르다 | AR-03 | `Pbkdf2PasswordHasherTest`(8) |
+| 세션 12시간 만료, **정각은 이미 만료** | AR-05 | `SessionTest`(5) |
+| 가입·로그인·로그아웃, 미가입/불일치를 같은 코드로 거절, 토큰별 로그아웃 | AR-04, 06 | `AuthServiceTest`(19) · `AuthApiTest`(14) |
+| 그룹 생성자는 즉시 OWNER·APPROVED | GR-01 | `GroupTest`(8) |
+| 멤버십 상태 전이 (PENDING→APPROVED/REJECTED, 거절 후 재초대) | GR-03~07 | `GroupMembershipTest`(14) |
+| 초대는 그룹장만 · 본인만 응답 · 자기 초대 금지 · 미가입 이메일 거절 | GR-02, 04, 08, 09 | `GroupServiceTest`(28) · `GroupApiTest`(18) |
+| 회의실 이름·위치 1~30자, 인원 1~999 | RR-04 | `RoomTest`(26) |
+| 회의실 추가는 승인된 그룹원만, **권한이 입력 검증보다 앞선다** | RR-02 | `RoomServiceTest`(26) · `RoomApiTest`(20) |
+| 남의 그룹 회의실은 존재해도 예약할 수 없다 | RR-03 | `ReservationApiTest`(17) · `ReservationServiceTest`(16) |
+| 취소 권한은 memberId — **동명이인이 남의 예약을 취소할 수 없다** | BR-07 개정 | `ReservationCancelTest`(10) · `ReservationServiceCancelTest`(11) · `ReservationApiTest` |
+| 오류 코드 31종 전수 HTTP 매핑 · 도달 가능성 · 문구 | — | `ErrorCodeHttpStatusTest`(35) · `ApiErrorMappingTest`(17) · `ReservationErrorCodeMessageTest`(19) |
+
+## 10.2 프론트
+
+| 파일 (건수) | 보장하는 동작 |
+|-------------|---------------|
+| `tokenStorage.test.ts` (6) | 토큰 저장·조회·삭제. 저장소 접근이 예외를 던지는 환경(프라이빗 모드)에서도 앱이 죽지 않는다 |
+| `auth.test.ts` (9) · `groups.test.ts` (10) | Bearer 헤더 부착, 오류 코드 전달 |
+| `useAuth.test.ts` (14) | loading → anonymous/로그인 전이, 가입·로그인·로그아웃 |
+| `useGroups.test.ts` (13) | 그룹 자동 선택, 그룹 생성·초대·수락/거절 후 목록 갱신, 거절 시 `errorCode` 만 남고 reject 하지 않는다 |
+| `LoginPage.test.tsx` (10) · `GroupsPage.test.tsx` (15) | 가입/로그인 폼, 그룹·초대·명단 화면 |
+| `RoomFormDialog.test.tsx` (10) | 회의실 추가 폼 — 이름·인원·위치가 비거나 범위를 벗어나면 요청 없이 그 자리에서 사유를 알린다 |
+| `App.test.tsx` (10) | 토큰 없음/세션 복원 중/만료 시 화면, 로그인·로그아웃 전환, 그룹 없음 안내, 탭 전환, 그룹 변경 시 격자 교체 |
 
 ## 검증 기법 메모
 
